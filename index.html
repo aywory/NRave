@@ -78,68 +78,60 @@
         const roomId = new URLSearchParams(window.location.search).get('room') || 'main';
         socket.emit('joinRoom', roomId);
 
-        let player;
+        let player = null;
+        let isHost = false; // По умолчанию мы не хозяин
 
-        // 1. Загрузка видео
+        // 1. ЗАГРУЗКА ВИДЕО
         function loadVideo() {
             const link = document.getElementById('vkLink').value;
             const match = link.match(/video(-?\d+_\d+)/);
 
             if (match) {
                 const videoId = match[1];
-                console.log("ID видео найден:", videoId);
+                isHost = true; // Тот, кто нажал кнопку, становится Хозяином
+
                 initPlayer(videoId);
 
+                // Говорим всем сменить видео и назначаем себя главным
                 socket.emit('playerEvent', {
                     roomId: roomId,
                     action: 'changeVideo',
-                    videoId: videoId
+                    videoId: videoId,
+                    hostTime: 0
                 });
-            } else {
-                alert("Неверная ссылка на видео ВК.");
             }
         }
 
-        // 2. Инициализация плеера и СИНХРОНИЗАЦИЯ
+        // 2. ИНИЦИАЛИЗАЦИЯ ПЛЕЕРА
         function initPlayer(videoId) {
             const parts = videoId.split('_');
-            const oid = parts[0];
-            const vid = parts[1];
-
             const container = document.getElementById('vk_player');
-            container.innerHTML = ''; // Очищаем контейнер
+            container.innerHTML = '';
 
-            // 1. Создаем iframe вручную (это надежнее)
-            const iframe = document.createElement('iframe');
+            const playerDiv = document.createElement('div');
+            container.appendChild(playerDiv);
 
-            // Формируем правильный адрес встраивания (video_ext.php)
-            // Добавляем js_api=1, чтобы библиотека ВК могла им управлять
-            iframe.src = `https://vk.com/video_ext.php?oid=${oid}&id=${vid}&js_api=1`;
+            player = new VK.VideoPlayer(playerDiv, {
+                oid: parts[0],
+                id: parts[1],
+                width: "100%",
+                height: 450,
+                autoplay: 1
+            });
 
-            iframe.width = "800";
-            iframe.height = "450";
-            iframe.frameBorder = "0";
-            iframe.allow = "autoplay; encrypted-media; fullscreen";
-            iframe.id = "vk_iframe"; // Даем ему ID
-
-            container.appendChild(iframe);
-
-            // 2. Инициализируем управление плеером через библиотеку ВК
-            // Теперь мы передаем сам iframe, а не настройки
-            player = new VK.VideoPlayer(iframe);
-
-            // 3. Вешаем события
             player.on('inited', () => {
-                console.log("Плеер успешно инициализирован");
+                console.log("Плеер готов. Роль Хозяина:", isHost);
 
-                player.on('started', () => sendSync('play'));
-                player.on('resumed', () => sendSync('play'));
-                player.on('paused', () => sendSync('pause'));
+                // Только Хозяин отправляет сигналы управления
+                player.on('started', () => { if (isHost) sendEvent('play'); });
+                player.on('resumed', () => { if (isHost) sendEvent('play'); });
+                player.on('paused', () => { if (isHost) sendEvent('pause'); });
             });
         }
 
-        // Функция отправки сигнала другому человеку
-        function sendSync(action) {
+        // Функция отправки команд
+        function sendEvent(action) {
+            if (!isHost) return;
             socket.emit('playerEvent', {
                 roomId: roomId,
                 action: action,
@@ -147,35 +139,54 @@
             });
         }
 
-        // 3. ЧАТ (Логика отправки)
+        // 3. СИСТЕМА ЖЕСТКОЙ СИНХРОНИЗАЦИИ (Heartbeat)
+        // Каждые 2 секунды Хозяин сообщает всем свое точное время
+        setInterval(() => {
+            if (isHost && player) {
+                socket.emit('playerEvent', {
+                    roomId: roomId,
+                    action: 'syncTime',
+                    time: player.getCurrentTime()
+                });
+            }
+        }, 2000);
+
+        // 4. ПРИЕМ КОМАНД
+        socket.on('playerEvent', (data) => {
+            if (data.action === 'changeVideo') {
+                isHost = false; // Если кто-то другой сменил видео, мы перестаем быть хозяином
+                initPlayer(data.videoId);
+            }
+
+            if (player && !isHost) { // Слушаемся только если мы не хозяин
+                if (data.action === 'play') player.play();
+                if (data.action === 'pause') player.pause();
+
+                if (data.action === 'syncTime' || data.action === 'play') {
+                    let myTime = player.getCurrentTime();
+                    // Если разница больше 1.5 секунд - принудительно перематываем
+                    if (Math.abs(myTime - data.time) > 1.5) {
+                        console.log("Рассинхрон! Подтягиваюсь к Хозяину...");
+                        player.seek(data.time);
+                    }
+                }
+            }
+        });
+
+        // ЧАТ (без изменений)
         function sendMessage() {
             const msgInput = document.getElementById('msgInput');
-            const msg = msgInput.value;
-            if (msg.trim() !== "") {
-                socket.emit('message', { roomId: roomId, text: msg });
+            if (msgInput.value.trim() !== "") {
+                socket.emit('message', { roomId, text: msgInput.value });
                 msgInput.value = '';
             }
         }
-
-        // 4. ПРИЕМ СОБЫТИЙ (от другого человека)
-        socket.on('playerEvent', (data) => {
-            if (data.action === 'changeVideo') {
-                initPlayer(data.videoId);
-            }
-            if (player) {
-                if (data.action === 'play') player.play();
-                if (data.action === 'pause') player.pause();
-            }
-        });
-
         socket.on('message', (data) => {
             const chat = document.getElementById('chat');
             chat.innerHTML += `<div><b>Аноним:</b> ${data.text}</div>`;
-            chat.scrollTop = chat.scrollHeight; // Прокрутка вниз
+            chat.scrollTop = chat.scrollHeight;
         });
-
-        // Отправка чата по кнопке Enter
-        document.getElementById('msgInput').addEventListener('keypress', function (e) {
+        document.getElementById('msgInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
     </script>
