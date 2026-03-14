@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VK Together Watch</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://vk.com/js/api/videoplayer.js"></script>
@@ -14,32 +15,37 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
+            padding: 10px;
+            margin: 0;
         }
 
         #video-container {
-            width: 800px;
-            height: 450px;
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 16/9;
             background: #000;
-            margin-top: 20px;
-            border: 2px solid #333;
+            margin-top: 10px;
+            border: 1px solid #333;
+            position: relative;
         }
 
         .controls {
-            margin: 20px;
+            margin: 10px;
             display: flex;
-            gap: 10px;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: center;
         }
 
         input {
             padding: 10px;
-            width: 300px;
+            width: 250px;
             border-radius: 5px;
             border: none;
         }
 
         button {
-            padding: 10px 20px;
+            padding: 10px;
             cursor: pointer;
             border-radius: 5px;
             border: none;
@@ -57,40 +63,54 @@
         }
 
         #chat {
-            width: 800px;
+            width: 100%;
+            max-width: 800px;
             height: 150px;
             border: 1px solid #444;
             overflow-y: scroll;
             margin-top: 10px;
             padding: 10px;
             background: #222;
-            border-radius: 5px;
+            box-sizing: border-box;
         }
 
         .chat-input {
-            width: 800px;
+            width: 100%;
+            max-width: 800px;
             display: flex;
             margin-top: 5px;
             gap: 5px;
         }
 
-        #status {
-            margin-top: 10px;
-            font-weight: bold;
+        .chat-input input {
+            flex-grow: 1;
         }
 
-        @media (max-width: 820px) {
+        #status {
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
 
-            #video-container,
-            #chat,
-            .chat-input {
-                width: 95vw;
-                height: auto;
-            }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
 
-            #video-container {
-                height: 250px;
-            }
+        /* Кнопка для мобильных */
+        #mobile-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            cursor: pointer;
+            display: none;
         }
     </style>
 </head>
@@ -98,22 +118,24 @@
 <body>
 
     <h2>Смотрим ВК вместе</h2>
-
-    <div id="status" style="color: gray;">Подключение к серверу...</div>
+    <div id="status">Подключение...</div>
 
     <div class="controls">
-        <input type="text" id="vkLink" placeholder="Вставьте ссылку на видео ВК">
-        <button class="btn-load" onclick="loadVideo()">Загрузить видео</button>
+        <input type="text" id="vkLink" placeholder="Ссылка на видео ВК">
+        <button class="btn-load" onclick="loadVideo()">Загрузить</button>
         <button class="btn-host" onclick="setMeAsHost()">Я ХОЗЯИН</button>
     </div>
 
     <div id="video-container">
-        <div id="vk_player"></div>
+        <div id="mobile-overlay" onclick="activateMobilePlayer()">
+            <div style="text-align: center;">🍿 Видео готово!<br>Нажми сюда, чтобы смотреть</div>
+        </div>
+        <div id="vk_player" style="width:100%; height:100%;"></div>
     </div>
 
     <div id="chat"></div>
     <div class="chat-input">
-        <input type="text" id="msgInput" placeholder="Введите сообщение...">
+        <input type="text" id="msgInput" placeholder="Сообщение...">
         <button onclick="sendMessage()" style="background: #4caf50; color: white;">Отправить</button>
     </div>
 
@@ -123,121 +145,93 @@
 
         let player = null;
         let isHost = false;
-        let currentVideoId = ""; // Храним тут текущее видео
+        let currentVideoId = "";
 
         socket.on('connect', () => {
-            document.getElementById('status').innerText = "✅ Подключено. Комната: " + roomId;
-            document.getElementById('status').style.color = "green";
+            document.getElementById('status').innerText = "✅ Подключено: " + roomId;
             socket.emit('joinRoom', roomId);
         });
 
         function setMeAsHost() {
             isHost = true;
-            document.getElementById('status').innerText = "⭐ ВЫ ХОЗЯИН (Управляете всеми)";
+            document.getElementById('status').innerText = "⭐ ВЫ ХОЗЯИН";
             document.getElementById('status').style.color = "gold";
         }
 
         function loadVideo() {
             const link = document.getElementById('vkLink').value;
             const match = link.match(/video(-?\d+_\d+)/);
-
             if (match) {
                 currentVideoId = match[1];
                 setMeAsHost();
                 initPlayer(currentVideoId);
-
-                socket.emit('playerEvent', {
-                    roomId: roomId,
-                    action: 'changeVideo',
-                    videoId: currentVideoId,
-                    time: 0
-                });
-            } else {
-                alert("Ошибка в ссылке!");
+                socket.emit('playerEvent', { roomId, action: 'changeVideo', videoId: currentVideoId, time: 0 });
             }
         }
 
         function initPlayer(videoId, startTime = 0) {
+            currentVideoId = videoId;
             const container = document.getElementById('vk_player');
-            container.innerHTML = ''; // Чистим старое
+            container.innerHTML = '';
 
             const parts = videoId.split('_');
             const oid = parts[0];
             const vid = parts[1];
 
-            // 1. Создаем правильный URL для встраивания вручную
-            // Параметр js_api=1 ОБЯЗАТЕЛЕН, чтобы работал пульт управления
-            const vkUrl = `https://vk.com/video_ext.php?oid=${oid}&id=${vid}&js_api=1`;
-
-            // 2. Создаем iframe вручную
+            // Создаем iframe вручную с параметрами для мобильных
             const iframe = document.createElement('iframe');
-            iframe.src = vkUrl;
-            iframe.width = "100%";
-            iframe.height = "450";
-            iframe.id = "vk_iframe";
-            iframe.frameBorder = "0";
+            iframe.src = `https://vk.com/video_ext.php?oid=${oid}&id=${vid}&js_api=1&autoplay=1`;
             iframe.allow = "autoplay; encrypted-media; fullscreen";
-
             container.appendChild(iframe);
 
-            console.log("Фрейм создан, подключаем пульт управления...");
+            // Показываем кнопку активации для телефонов
+            if (!isHost) {
+                document.getElementById('mobile-overlay').style.display = 'flex';
+            }
 
-            // 3. Подключаем библиотеку ВК к нашему фрейму
-            // Даем небольшую задержку 300мс, чтобы браузер успел отрисовать фрейм
+            // Инициализируем пульт управления
             setTimeout(() => {
                 try {
                     player = new VK.VideoPlayer(iframe);
-
                     player.on('inited', () => {
-                        console.log("Успех! Пульт ВК подключен.");
                         if (startTime > 0) player.seek(startTime);
-
                         player.on('resumed', () => { if (isHost) sendEvent('play'); });
                         player.on('paused', () => { if (isHost) sendEvent('pause'); });
                     });
-                } catch (e) {
-                    console.error("Библиотека ВК всё еще ругается, но видео должно работать:", e);
-                }
-            }, 300);
+                } catch (e) { console.error(e); }
+            }, 500);
+        }
+
+        // Функция для мобильных: убирает оверлей и запускает плеер
+        function activateMobilePlayer() {
+            document.getElementById('mobile-overlay').style.display = 'none';
+            if (player) player.play();
         }
 
         function sendEvent(action) {
-            if (!isHost || !player || !currentVideoId) return;
+            if (!isHost || !player) return;
             socket.emit('playerEvent', {
-                roomId: roomId,
-                action: action,
-                time: player.getCurrentTime(),
-                videoId: currentVideoId
+                roomId: roomId, action: action, time: player.getCurrentTime(), videoId: currentVideoId
             });
         }
 
-        // Синхронизация от хозяина
         setInterval(() => {
-            if (isHost && player) {
-                sendEvent('syncTime');
-            }
+            if (isHost && player) sendEvent('syncTime');
         }, 2000);
 
         socket.on('playerEvent', (data) => {
             if (isHost && data.action !== 'changeVideo') return;
-
-            if (data.action === 'changeVideo' && data.videoId !== currentVideoId) {
-                currentVideoId = data.videoId;
+            if (data.action === 'changeVideo') {
                 initPlayer(data.videoId, data.time);
             }
-
             if (player) {
                 if (data.action === 'play') player.play();
                 if (data.action === 'pause') player.pause();
-
                 let myTime = player.getCurrentTime();
-                if (Math.abs(myTime - data.time) > 3) {
-                    player.seek(data.time);
-                }
+                if (Math.abs(myTime - data.time) > 3) player.seek(data.time);
             }
         });
 
-        // ЧАТ
         function sendMessage() {
             const input = document.getElementById('msgInput');
             if (input.value.trim() !== "") {
@@ -245,16 +239,12 @@
                 input.value = '';
             }
         }
-
         socket.on('message', (data) => {
             const chat = document.getElementById('chat');
             chat.innerHTML += `<div><b>Аноним:</b> ${data.text}</div>`;
             chat.scrollTop = chat.scrollHeight;
         });
-
-        document.getElementById('msgInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
+        document.getElementById('msgInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
     </script>
 </body>
 
