@@ -5,220 +5,242 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VK Together</title>
+    <title>Together Watch</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://vk.com/js/api/videoplayer.js"></script>
     <style>
-        /* Обнуляем всё и фиксируем высоту экрана */
+        /* Стиль в духе Rave */
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         html,
         body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            background: #121212;
+            background: #000;
             color: white;
-            font-family: -apple-system, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             overflow: hidden;
-            /* Запрещаем скролл всей страницы */
+            position: fixed;
+            /* Полная блокировка системного скролла */
         }
 
-        /* Главный контейнер */
-        .app-wrapper {
+        #app-root {
             display: flex;
             flex-direction: column;
             width: 100%;
-            height: 100dvh;
-            /* dvh - динамическая высота (фикс для iOS) */
-            max-width: 900px;
+            height: 100%;
+            /* Высота будет меняться через JS */
+            max-width: 600px;
             margin: 0 auto;
-            background: #1a1a1a;
+            background: #000;
+            position: relative;
         }
 
-        /* БЛОК ВИДЕО (всегда сверху) */
-        .video-box {
+        /* БЛОК ВИДЕО (КАК В RAVE - СВЕРХУ) */
+        .video-section {
             width: 100%;
             flex-shrink: 0;
             background: #000;
-            z-index: 10;
+            z-index: 100;
         }
 
-        .video-ratio {
+        .video-container {
             width: 100%;
-            aspect-ratio: 16 / 9;
+            aspect-ratio: 16/9;
             position: relative;
-            background: #000;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
         }
 
-        #vk_player_iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
-
-        /* ОВЕРЛЕЙ ДЛЯ МОБИЛ */
         #mobile-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.7);
             display: none;
             justify-content: center;
             align-items: center;
-            z-index: 11;
+            z-index: 101;
             text-align: center;
-            cursor: pointer;
-        }
-
-        /* УПРАВЛЕНИЕ (под видео) */
-        .controls {
-            padding: 8px;
-            display: flex;
-            gap: 6px;
-            background: #1a1a1a;
-            border-bottom: 1px solid #333;
-            flex-shrink: 0;
-        }
-
-        .controls input {
-            flex-grow: 1;
-            background: #333;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 16px;
-        }
-
-        .controls button {
-            padding: 10px;
-            border: none;
-            border-radius: 6px;
             font-weight: bold;
+        }
+
+        /* УПРАВЛЕНИЕ (СКРЫТОЕ ИЛИ КОМПАКТНОЕ) */
+        .top-bar {
+            display: flex;
+            padding: 8px;
+            gap: 5px;
+            background: #111;
+            border-bottom: 1px solid #222;
+            align-items: center;
+        }
+
+        .top-bar input {
+            flex-grow: 1;
+            background: #222;
+            border: none;
+            color: #ccc;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .btn-action {
+            background: #222;
+            color: #fff;
+            border: none;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 12px;
             cursor: pointer;
         }
 
-        /* ЧАТ (занимает всё свободное место) */
+        /* ЧАТ (ПУЗЫРЬКИ) */
         #chat {
             flex-grow: 1;
             overflow-y: auto;
-            background: #121212;
-            padding: 10px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 10px;
+            background: linear-gradient(to bottom, #111, #000);
             -webkit-overflow-scrolling: touch;
         }
 
         .msg {
-            background: #2c2c2c;
-            padding: 8px 12px;
-            border-radius: 12px;
-            font-size: 14px;
-            align-self: flex-start;
             max-width: 85%;
+            padding: 8px 12px;
+            border-radius: 15px;
+            font-size: 14px;
+            line-height: 1.4;
+            position: relative;
+            background: #262626;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+            color: #efefef;
         }
 
         .msg b {
-            color: #71aaeb;
-            margin-right: 5px;
+            color: #58a6ff;
+            display: block;
+            font-size: 11px;
+            margin-bottom: 2px;
         }
 
-        /* ВВОД СООБЩЕНИЯ (всегда внизу) */
-        .footer {
+        /* ИНПУТ (ВНИЗУ) */
+        .input-area {
             padding: 10px;
-            background: #1a1a1a;
+            background: #111;
             display: flex;
-            gap: 8px;
+            gap: 10px;
+            align-items: center;
             flex-shrink: 0;
             padding-bottom: calc(10px + env(safe-area-inset-bottom));
         }
 
         #msgInput {
             flex-grow: 1;
-            background: #333;
-            color: white;
+            background: #222;
             border: none;
-            padding: 12px;
-            border-radius: 20px;
+            color: white;
+            padding: 12px 18px;
+            border-radius: 25px;
             font-size: 16px;
         }
 
-        .btn-send {
-            background: #4caf50;
+        .send-btn {
+            background: #2ea043;
             color: white;
             border: none;
-            padding: 0 20px;
-            border-radius: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+        }
+
+        /* ИНДИКАТОР ХОЗЯИНА */
+        .host-badge {
+            background: #d29922;
+            color: black;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
             font-weight: bold;
-        }
-
-        /* Статус */
-        #status-bar {
-            font-size: 11px;
-            text-align: center;
-            color: #666;
-            padding: 2px;
-        }
-
-        /* Специально для ПК: если экран широкий */
-        @media (min-width: 900px) {
-            .app-wrapper {
-                border-left: 1px solid #333;
-                border-right: 1px solid #333;
-            }
         }
     </style>
 </head>
 
 <body>
 
-    <div class="app-wrapper">
-        <div id="status-bar">Загрузка...</div>
+    <div id="app-root">
+        <!-- Верхняя панель ввода ссылки -->
+        <div class="top-bar">
+            <input type="text" id="vkLink" placeholder="Вставь ссылку на видео...">
+            <button class="btn-action" onclick="loadVideo()" style="background: #4c75a3;">📺</button>
+            <button id="hostBtn" class="btn-action" onclick="setMeAsHost()">👑</button>
+        </div>
 
-        <div class="video-box">
-            <div class="video-ratio">
+        <!-- Видео-плеер -->
+        <div class="video-section">
+            <div class="video-container">
                 <div id="mobile-overlay" onclick="activateMobilePlayer()">
-                    <div>🍿 Видео готово!<br><small>Нажми здесь для синхронизации</small></div>
+                    <div>🍿 СИНХРОНИЗАЦИЯ...<br><span style="font-size: 11px; font-weight: normal;">Нажми, чтобы
+                            присоединиться</span></div>
                 </div>
-                <div id="player-container" style="width:100%; height:100%;"></div>
-            </div>
-            <div class="controls">
-                <input type="text" id="vkLink" placeholder="Ссылка на видео ВК">
-                <button onclick="loadVideo()" style="background:#4c75a3; color:white;">Загрузить</button>
-                <button id="hostBtn" onclick="setMeAsHost()" style="background:#444; color:white;">Я Хозяин</button>
+                <div id="player-target" style="width:100%; height:100%;"></div>
             </div>
         </div>
 
+        <!-- Чат -->
         <div id="chat"></div>
 
-        <div class="footer">
-            <input type="text" id="msgInput" placeholder="Сообщение...">
-            <button class="btn-send" onclick="sendMessage()">➤</button>
+        <!-- Поле ввода -->
+        <div class="input-area">
+            <input type="text" id="msgInput" placeholder="Написать в чат...">
+            <button class="send-btn" onclick="sendMessage()">➤</button>
         </div>
     </div>
 
     <script>
+        /* ФИКС ДЛЯ КЛАВИАТУРЫ (Rave Style) */
+        function syncViewport() {
+            const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            document.getElementById('app-root').style.height = vh + 'px';
+            window.scrollTo(0, 0);
+
+            // Авто-скролл чата при открытии клавы
+            const chat = document.getElementById('chat');
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', syncViewport);
+            window.visualViewport.addEventListener('scroll', syncViewport);
+        }
+        window.addEventListener('load', syncViewport);
+
+        /* ЛОГИКА ПРИЛОЖЕНИЯ */
         const roomId = 'nrave_private_room_777';
         const socket = io('https://nrave.onrender.com');
-        let player = null;
-        let isHost = false;
-        let currentVideoId = "";
-        let hostActualState = 'pause';
+        let player = null, isHost = false, currentVideoId = "", hostActualState = 'pause';
 
         socket.on('connect', () => {
-            document.getElementById('status-bar').innerText = "✅ Комната: " + roomId;
             socket.emit('joinRoom', roomId);
         });
 
         function setMeAsHost() {
             isHost = true;
-            const btn = document.getElementById('hostBtn');
-            btn.style.background = "orange";
-            btn.innerText = "⭐ Я ХОЗЯИН";
+            document.getElementById('hostBtn').style.background = "#d29922";
+            document.getElementById('hostBtn').innerText = "👑";
         }
 
         function loadVideo() {
@@ -234,24 +256,23 @@
 
         function initPlayer(videoId, startTime = 0) {
             currentVideoId = videoId;
-            const container = document.getElementById('player-container');
+            const container = document.getElementById('player-target');
             const parts = videoId.split('_');
             const iframe = document.createElement('iframe');
-            iframe.id = "vk_player_iframe";
             iframe.src = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&js_api=1&autoplay=1`;
             iframe.allow = "autoplay; encrypted-media; fullscreen";
             container.innerHTML = '';
             container.appendChild(iframe);
 
-            if (!isHost) { document.getElementById('mobile-overlay').style.display = 'flex'; }
+            if (!isHost) document.getElementById('mobile-overlay').style.display = 'flex';
 
             setTimeout(() => {
                 try {
                     player = new VK.VideoPlayer(iframe);
                     player.on('inited', () => {
                         if (startTime > 0) player.seek(startTime);
-                        player.on('resumed', () => { if (isHost) { hostActualState = 'play'; sendEvent('play'); } });
-                        player.on('paused', () => { if (isHost) { hostActualState = 'pause'; sendEvent('pause'); } });
+                        player.on('resumed', () => { if (isHost) { hostActualState = 'play'; sendSync('play'); } });
+                        player.on('paused', () => { if (isHost) { hostActualState = 'pause'; sendSync('pause'); } });
                     });
                 } catch (e) { console.error(e); }
             }, 600);
@@ -262,18 +283,14 @@
             if (player) player.play();
         }
 
-        function sendEvent(action) {
+        function sendSync(action) {
             if (!isHost || !player) return;
-            socket.emit('playerEvent', {
-                roomId, action, time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState
-            });
+            socket.emit('playerEvent', { roomId, action, time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState });
         }
 
         setInterval(() => {
             if (isHost && player) {
-                socket.emit('playerEvent', {
-                    roomId, action: 'syncTime', time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState
-                });
+                socket.emit('playerEvent', { roomId, action: 'syncTime', time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState });
             }
         }, 2000);
 
@@ -300,7 +317,7 @@
 
         socket.on('message', (data) => {
             const chat = document.getElementById('chat');
-            chat.innerHTML += `<div class="msg"><b>Аноним:</b> ${data.text}</div>`;
+            chat.innerHTML += `<div class="msg"><b>Аноним</b>${data.text}</div>`;
             chat.scrollTop = chat.scrollHeight;
         });
 
