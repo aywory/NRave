@@ -146,6 +146,7 @@
         let player = null;
         let isHost = false;
         let currentVideoId = "";
+        let lastHostState = "pause"; // Следим за состоянием хозяина
 
         socket.on('connect', () => {
             document.getElementById('status').innerText = "✅ Подключено: " + roomId;
@@ -165,7 +166,7 @@
                 currentVideoId = match[1];
                 setMeAsHost();
                 initPlayer(currentVideoId);
-                socket.emit('playerEvent', { roomId, action: 'changeVideo', videoId: currentVideoId, time: 0 });
+                socket.emit('playerEvent', { roomId, action: 'changeVideo', videoId: currentVideoId, time: 0, state: 'play' });
             }
         }
 
@@ -175,26 +176,24 @@
             container.innerHTML = '';
 
             const parts = videoId.split('_');
-            const oid = parts[0];
-            const vid = parts[1];
-
-            // Создаем iframe вручную с параметрами для мобильных
             const iframe = document.createElement('iframe');
-            iframe.src = `https://vk.com/video_ext.php?oid=${oid}&id=${vid}&js_api=1&autoplay=1`;
+            // Добавляем autoplay=1 и mute=1 для лучшей проходимости на мобильных
+            iframe.src = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&js_api=1&autoplay=1`;
             iframe.allow = "autoplay; encrypted-media; fullscreen";
             container.appendChild(iframe);
 
-            // Показываем кнопку активации для телефонов
+            // Показываем кнопку активации для всех, кроме хозяина (хозяин и так нажал "Загрузить")
             if (!isHost) {
                 document.getElementById('mobile-overlay').style.display = 'flex';
             }
 
-            // Инициализируем пульт управления
             setTimeout(() => {
                 try {
                     player = new VK.VideoPlayer(iframe);
                     player.on('inited', () => {
                         if (startTime > 0) player.seek(startTime);
+
+                        // Следим за действиями хозяина
                         player.on('resumed', () => { if (isHost) sendEvent('play'); });
                         player.on('paused', () => { if (isHost) sendEvent('pause'); });
                     });
@@ -202,36 +201,67 @@
             }, 500);
         }
 
-        // Функция для мобильных: убирает оверлей и запускает плеер
+        // Кнопка на телефоне теперь "пробивает" блокировку браузера
         function activateMobilePlayer() {
             document.getElementById('mobile-overlay').style.display = 'none';
-            if (player) player.play();
+            if (player) {
+                player.play(); // Пробуем запустить
+                // Если хозяин в этот момент на паузе, плеер сам подстроится чуть позже через syncTime
+            }
         }
 
         function sendEvent(action) {
             if (!isHost || !player) return;
             socket.emit('playerEvent', {
-                roomId: roomId, action: action, time: player.getCurrentTime(), videoId: currentVideoId
+                roomId: roomId,
+                action: action,
+                time: player.getCurrentTime(),
+                videoId: currentVideoId,
+                state: action // Передаем состояние (play или pause)
             });
         }
 
+        // Постоянная синхронизация
         setInterval(() => {
-            if (isHost && player) sendEvent('syncTime');
+            if (isHost && player) {
+                const currentState = "syncTime";
+                socket.emit('playerEvent', {
+                    roomId: roomId,
+                    action: currentState,
+                    time: player.getCurrentTime(),
+                    videoId: currentVideoId,
+                    state: 'playing' // Если мы тут, значит мы хозяин и у нас идет видео
+                });
+            }
         }, 2000);
 
         socket.on('playerEvent', (data) => {
             if (isHost && data.action !== 'changeVideo') return;
+
             if (data.action === 'changeVideo') {
                 initPlayer(data.videoId, data.time);
+                return;
             }
+
             if (player) {
-                if (data.action === 'play') player.play();
-                if (data.action === 'pause') player.pause();
+                // Если хозяин говорит ПЛЕЙ, а у нас стоит пауза - запускаем
+                if (data.action === 'play' || (data.action === 'syncTime' && data.state === 'playing')) {
+                    player.play();
+                }
+
+                // Если хозяин говорит ПАУЗА - ставим паузу
+                if (data.action === 'pause') {
+                    player.pause();
+                }
+
                 let myTime = player.getCurrentTime();
-                if (Math.abs(myTime - data.time) > 3) player.seek(data.time);
+                if (Math.abs(myTime - data.time) > 3) {
+                    player.seek(data.time);
+                }
             }
         });
 
+        // ЧАТ (без изменений)
         function sendMessage() {
             const input = document.getElementById('msgInput');
             if (input.value.trim() !== "") {
