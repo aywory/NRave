@@ -3,92 +3,61 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>VK Together Watch</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://vk.com/js/api/videoplayer.js"></script>
     <style>
-        body {
-            font-family: sans-serif;
-            background: #1a1a1a;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 10px;
-            margin: 0;
-        }
-
-        #video-container {
-            width: 100%;
-            max-width: 800px;
-            aspect-ratio: 16/9;
-            background: #000;
-            margin-top: 10px;
-            border: 1px solid #333;
-            position: relative;
-        }
-
-        .controls {
-            margin: 10px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            justify-content: center;
-        }
-
-        input {
-            padding: 10px;
-            width: 250px;
-            border-radius: 5px;
-            border: none;
-        }
-
-        button {
-            padding: 10px;
-            cursor: pointer;
-            border-radius: 5px;
-            border: none;
-            font-weight: bold;
-        }
-
-        .btn-load {
-            background: #4c75a3;
-            color: white;
-        }
-
-        .btn-host {
-            background: orange;
-            color: black;
-        }
-
-        #chat {
-            width: 100%;
-            max-width: 800px;
-            height: 150px;
-            border: 1px solid #444;
-            overflow-y: scroll;
-            margin-top: 10px;
-            padding: 10px;
-            background: #222;
+        /* Общие стили */
+        * {
             box-sizing: border-box;
         }
 
-        .chat-input {
+        body,
+        html {
+            margin: 0;
+            padding: 0;
             width: 100%;
-            max-width: 800px;
-            display: flex;
-            margin-top: 5px;
-            gap: 5px;
+            height: 100dvh;
+            background: #121212;
+            color: white;
+            font-family: -apple-system, system-ui, sans-serif;
+            overflow: hidden;
+            /* Запрещаем общий скролл страницы */
         }
 
-        .chat-input input {
-            flex-grow: 1;
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Шапка и статус */
+        header {
+            padding: 10px;
+            text-align: center;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 18px;
         }
 
         #status {
-            font-size: 12px;
-            margin-bottom: 5px;
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* Видео */
+        #video-container {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            position: relative;
+            flex-shrink: 0;
         }
 
         iframe {
@@ -97,46 +66,159 @@
             border: none;
         }
 
-        /* Кнопка для мобильных */
+        /* Оверлей для мобил */
         #mobile-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
             justify-content: center;
             align-items: center;
             z-index: 10;
-            cursor: pointer;
-            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* Управление */
+        .controls {
+            padding: 10px;
+            display: flex;
+            gap: 5px;
+            background: #1a1a1a;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        input,
+        button {
+            border-radius: 8px;
+            border: none;
+            padding: 10px;
+            font-size: 16px;
+            /* 16px - ФИКС ДЛЯ IOS */
+        }
+
+        #vkLink {
+            flex-grow: 1;
+            min-width: 200px;
+            background: #333;
+            color: white;
+        }
+
+        .btn-load {
+            background: #4c75a3;
+            color: white;
+        }
+
+        .btn-host {
+            background: #ff9800;
+            color: black;
+            font-weight: bold;
+        }
+
+        /* Чат */
+        #chat {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: #121212;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .msg {
+            background: #222;
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: 14px;
+            width: fit-content;
+            max-width: 90%;
+        }
+
+        .msg b {
+            color: #71aaeb;
+            margin-right: 5px;
+        }
+
+        /* Поле ввода сообщения */
+        .chat-input {
+            padding: 10px;
+            background: #1a1a1a;
+            display: flex;
+            gap: 8px;
+            padding-bottom: env(safe-area-inset-bottom);
+            /* Учет челки/полоски на Айфоне */
+        }
+
+        #msgInput {
+            flex-grow: 1;
+            background: #333;
+            color: white;
+        }
+
+        .btn-send {
+            background: #4caf50;
+            color: white;
+        }
+
+        /* Адаптация под открытую клавиатуру */
+        @media (max-height: 450px) {
+
+            h2,
+            #status,
+            header {
+                display: none;
+            }
+
+            #video-container {
+                width: 40%;
+                aspect-ratio: auto;
+                height: 100%;
+            }
+
+            .app-container {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            #chat {
+                height: 100%;
+            }
         }
     </style>
 </head>
 
 <body>
 
-    <h2>Смотрим ВК вместе</h2>
-    <div id="status">Подключение...</div>
+    <div class="app-container">
+        <header>
+            <h2>Смотрим вместе</h2>
+            <div id="status">Подключение...</div>
+        </header>
 
-    <div class="controls">
-        <input type="text" id="vkLink" placeholder="Ссылка на видео ВК">
-        <button class="btn-load" onclick="loadVideo()">Загрузить</button>
-        <button class="btn-host" onclick="setMeAsHost()">Я ХОЗЯИН</button>
-    </div>
-
-    <div id="video-container">
-        <div id="mobile-overlay" onclick="activateMobilePlayer()">
-            <div style="text-align: center;">🍿 Видео готово!<br>Нажми сюда, чтобы смотреть</div>
+        <div id="video-container">
+            <div id="mobile-overlay" onclick="activateMobilePlayer()">
+                <div>🍿 Видео готово!<br><small>Нажми сюда, чтобы синхронизироваться</small></div>
+            </div>
+            <div id="vk_player" style="width:100%; height:100%;"></div>
         </div>
-        <div id="vk_player" style="width:100%; height:100%;"></div>
-    </div>
 
-    <div id="chat"></div>
-    <div class="chat-input">
-        <input type="text" id="msgInput" placeholder="Сообщение...">
-        <button onclick="sendMessage()" style="background: #4caf50; color: white;">Отправить</button>
+        <div class="controls">
+            <input type="text" id="vkLink" placeholder="Ссылка на видео ВК">
+            <button class="btn-load" onclick="loadVideo()">Загрузить</button>
+            <button class="btn-host" onclick="setMeAsHost()">Я ХОЗЯИН</button>
+        </div>
+
+        <div id="chat"></div>
+
+        <div class="chat-input">
+            <input type="text" id="msgInput" placeholder="Сообщение...">
+            <button class="btn-send" onclick="sendMessage()">Отправить</button>
+        </div>
     </div>
 
     <script>
@@ -146,7 +228,7 @@
         let player = null;
         let isHost = false;
         let currentVideoId = "";
-        let lastHostState = "pause"; // Следим за состоянием хозяина
+        let hostActualState = 'pause';
 
         socket.on('connect', () => {
             document.getElementById('status').innerText = "✅ Подключено: " + roomId;
@@ -155,7 +237,7 @@
 
         function setMeAsHost() {
             isHost = true;
-            document.getElementById('status').innerText = "⭐ ВЫ ХОЗЯИН";
+            document.getElementById('status').innerText = "⭐ ВЫ ХОЗЯИН (УПРАВЛЯЕТЕ ВСЕМИ)";
             document.getElementById('status').style.color = "gold";
         }
 
@@ -165,6 +247,7 @@
             if (match) {
                 currentVideoId = match[1];
                 setMeAsHost();
+                hostActualState = 'play';
                 initPlayer(currentVideoId);
                 socket.emit('playerEvent', { roomId, action: 'changeVideo', videoId: currentVideoId, time: 0, state: 'play' });
             }
@@ -174,94 +257,57 @@
             currentVideoId = videoId;
             const container = document.getElementById('vk_player');
             container.innerHTML = '';
-
             const parts = videoId.split('_');
             const iframe = document.createElement('iframe');
-            // Добавляем autoplay=1 и mute=1 для лучшей проходимости на мобильных
             iframe.src = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&js_api=1&autoplay=1`;
             iframe.allow = "autoplay; encrypted-media; fullscreen";
             container.appendChild(iframe);
 
-            // Показываем кнопку активации для всех, кроме хозяина (хозяин и так нажал "Загрузить")
-            if (!isHost) {
-                document.getElementById('mobile-overlay').style.display = 'flex';
-            }
+            if (!isHost) { document.getElementById('mobile-overlay').style.display = 'flex'; }
 
             setTimeout(() => {
                 try {
                     player = new VK.VideoPlayer(iframe);
                     player.on('inited', () => {
                         if (startTime > 0) player.seek(startTime);
-
-                        // Следим за действиями хозяина
-                        player.on('resumed', () => { if (isHost) sendEvent('play'); });
-                        player.on('paused', () => { if (isHost) sendEvent('pause'); });
+                        player.on('resumed', () => { if (isHost) { hostActualState = 'play'; sendEvent('play'); } });
+                        player.on('paused', () => { if (isHost) { hostActualState = 'pause'; sendEvent('pause'); } });
                     });
                 } catch (e) { console.error(e); }
             }, 500);
         }
 
-        // Кнопка на телефоне теперь "пробивает" блокировку браузера
         function activateMobilePlayer() {
             document.getElementById('mobile-overlay').style.display = 'none';
-            if (player) {
-                player.play(); // Пробуем запустить
-                // Если хозяин в этот момент на паузе, плеер сам подстроится чуть позже через syncTime
-            }
+            if (player) player.play();
         }
 
         function sendEvent(action) {
             if (!isHost || !player) return;
             socket.emit('playerEvent', {
-                roomId: roomId,
-                action: action,
-                time: player.getCurrentTime(),
-                videoId: currentVideoId,
-                state: action // Передаем состояние (play или pause)
+                roomId: roomId, action: action, time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState
             });
         }
 
-        // Постоянная синхронизация
         setInterval(() => {
             if (isHost && player) {
-                const currentState = "syncTime";
                 socket.emit('playerEvent', {
-                    roomId: roomId,
-                    action: currentState,
-                    time: player.getCurrentTime(),
-                    videoId: currentVideoId,
-                    state: 'playing' // Если мы тут, значит мы хозяин и у нас идет видео
+                    roomId: roomId, action: 'syncTime', time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState
                 });
             }
         }, 2000);
 
         socket.on('playerEvent', (data) => {
             if (isHost && data.action !== 'changeVideo') return;
-
-            if (data.action === 'changeVideo') {
-                initPlayer(data.videoId, data.time);
-                return;
-            }
-
+            if (data.action === 'changeVideo') { initPlayer(data.videoId, data.time); return; }
             if (player) {
-                // Если хозяин говорит ПЛЕЙ, а у нас стоит пауза - запускаем
-                if (data.action === 'play' || (data.action === 'syncTime' && data.state === 'playing')) {
-                    player.play();
-                }
-
-                // Если хозяин говорит ПАУЗА - ставим паузу
-                if (data.action === 'pause') {
-                    player.pause();
-                }
-
+                if (data.state === 'play') player.play();
+                else if (data.state === 'pause') player.pause();
                 let myTime = player.getCurrentTime();
-                if (Math.abs(myTime - data.time) > 3) {
-                    player.seek(data.time);
-                }
+                if (Math.abs(myTime - data.time) > 3) player.seek(data.time);
             }
         });
 
-        // ЧАТ (без изменений)
         function sendMessage() {
             const input = document.getElementById('msgInput');
             if (input.value.trim() !== "") {
@@ -269,11 +315,13 @@
                 input.value = '';
             }
         }
+
         socket.on('message', (data) => {
             const chat = document.getElementById('chat');
-            chat.innerHTML += `<div><b>Аноним:</b> ${data.text}</div>`;
+            chat.innerHTML += `<div class="msg"><b>Аноним:</b>${data.text}</div>`;
             chat.scrollTop = chat.scrollHeight;
         });
+
         document.getElementById('msgInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
     </script>
 </body>
