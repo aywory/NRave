@@ -74,58 +74,79 @@
     </div>
 
     <script>
-        const socket = io('https://nrave.onrender.com'); // Например, localhost:3000
+        const socket = io('https://nrave.onrender.com');
         const roomId = new URLSearchParams(window.location.search).get('room') || 'main';
         socket.emit('joinRoom', roomId);
 
         let player;
 
-        // Функция парсинга ссылки ВК для получения ID видео
+        // 1. Загрузка видео
         function loadVideo() {
             const link = document.getElementById('vkLink').value;
-            // Исправленное регулярное выражение, которое понимает и m.vkvideo.ru и vk.com
             const match = link.match(/video(-?\d+_\d+)/);
 
             if (match) {
-                const videoId = match[1]; // Получим что-то вроде -56169357_456266703
+                const videoId = match[1];
                 console.log("ID видео найден:", videoId);
                 initPlayer(videoId);
 
-                // Отправляем всем в комнате, что мы сменили видео
                 socket.emit('playerEvent', {
                     roomId: roomId,
                     action: 'changeVideo',
                     videoId: videoId
                 });
             } else {
-                alert("Неверная ссылка на видео ВК. Убедитесь, что в ссылке есть слово 'video' и цифры.");
+                alert("Неверная ссылка на видео ВК.");
             }
         }
 
+        // 2. Инициализация плеера и СИНХРОНИЗАЦИЯ
         function initPlayer(videoId) {
             const parts = videoId.split('_');
             const oid = parts[0];
             const vid = parts[1];
 
             const container = document.getElementById('vk_player');
-            container.innerHTML = ''; // Очищаем старое видео
+            container.innerHTML = '';
 
-            // Создаем плеер
             player = new VK.VideoPlayer(container, {
                 oid: oid,
                 id: vid,
-                width: "100%", // Растянуть на всю ширину
+                width: "100%",
                 height: 450,
                 autoplay: 1
             });
 
-            // Слушаем события (когда плеер будет готов)
+            // Когда плеер готов, вешаем события на кнопки Плей/Пауза
             player.on('inited', () => {
-                console.log("Плеер готов к работе");
+                console.log("Плеер готов");
+
+                player.on('started', () => sendSync('play'));
+                player.on('resumed', () => sendSync('play'));
+                player.on('paused', () => sendSync('pause'));
             });
         }
 
-        // Добавим в обработчик socket.on('playerEvent') поддержку смены видео:
+        // Функция отправки сигнала другому человеку
+        function sendSync(action) {
+            socket.emit('playerEvent', {
+                roomId: roomId,
+                action: action,
+                time: player.getCurrentTime()
+            });
+        }
+
+        // 3. ЧАТ (Логика отправки)
+        function sendMessage() {
+            const msgInput = document.getElementById('msgInput');
+            const msg = msgInput.value;
+            if (msg.trim() !== "") {
+                socket.emit('message', { roomId: roomId, text: msg });
+                msgInput.value = '';
+            }
+        }
+
+        // 4. ПРИЕМ СОБЫТИЙ (от другого человека)
         socket.on('playerEvent', (data) => {
             if (data.action === 'changeVideo') {
                 initPlayer(data.videoId);
@@ -134,6 +155,17 @@
                 if (data.action === 'play') player.play();
                 if (data.action === 'pause') player.pause();
             }
+        });
+
+        socket.on('message', (data) => {
+            const chat = document.getElementById('chat');
+            chat.innerHTML += `<div><b>Аноним:</b> ${data.text}</div>`;
+            chat.scrollTop = chat.scrollHeight; // Прокрутка вниз
+        });
+
+        // Отправка чата по кнопке Enter
+        document.getElementById('msgInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') sendMessage();
         });
     </script>
 </body>
