@@ -83,60 +83,57 @@
         // Функция парсинга ссылки ВК для получения ID видео
         function loadVideo() {
             const link = document.getElementById('vkLink').value;
-            // Пример ссылки: https://vk.com/video-22822305_456239017
-            const match = link.match(/video(-?\[0-9]+_[0-9]+)/);
+            // Исправленное регулярное выражение, которое понимает и m.vkvideo.ru и vk.com
+            const match = link.match(/video(-?\d+_\d+)/);
+
             if (match) {
-                const videoId = match[1];
+                const videoId = match[1]; // Получим что-то вроде -56169357_456266703
+                console.log("ID видео найден:", videoId);
                 initPlayer(videoId);
+
+                // Отправляем всем в комнате, что мы сменили видео
+                socket.emit('playerEvent', {
+                    roomId: roomId,
+                    action: 'changeVideo',
+                    videoId: videoId
+                });
+            } else {
+                alert("Неверная ссылка на видео ВК. Убедитесь, что в ссылке есть слово 'video' и цифры.");
             }
         }
 
         function initPlayer(videoId) {
-            const [oid, vid] = videoId.split('_');
+            const parts = videoId.split('_');
+            const oid = parts[0];
+            const vid = parts[1];
 
-            // Удаляем старый плеер если есть
-            document.getElementById('vk_player').innerHTML = '';
+            const container = document.getElementById('vk_player');
+            container.innerHTML = ''; // Очищаем старое видео
 
-            player = new VK.VideoPlayer(document.getElementById('vk_player'), {
+            // Создаем плеер
+            player = new VK.VideoPlayer(container, {
                 oid: oid,
                 id: vid,
-                width: 800,
+                width: "100%", // Растянуть на всю ширину
                 height: 450,
-                autoplay: 0
+                autoplay: 1
             });
 
-            // Слушаем события плеера
-            player.on('started', () => sync('play'));
-            player.on('resumed', () => sync('play'));
-            player.on('paused', () => sync('pause'));
-        }
-
-        function sync(action) {
-            socket.emit('playerEvent', {
-                roomId: roomId,
-                action: action,
-                time: player.getCurrentTime()
+            // Слушаем события (когда плеер будет готов)
+            player.on('inited', () => {
+                console.log("Плеер готов к работе");
             });
         }
 
-        // Получаем команды от друга
+        // Добавим в обработчик socket.on('playerEvent') поддержку смены видео:
         socket.on('playerEvent', (data) => {
-            if (data.action === 'play') player.play();
-            if (data.action === 'pause') player.pause();
-            // Чтобы не было бесконечного цикла, здесь нужна проверка разницы во времени
-        });
-
-        // Чат
-        function sendMessage() {
-            const msg = document.getElementById('msgInput').value;
-            socket.emit('message', { roomId, text: msg });
-            document.getElementById('msgInput').value = '';
-        }
-
-        socket.on('message', (data) => {
-            const chat = document.getElementById('chat');
-            chat.innerHTML += `<div><b>Аноним:</b> ${data.text}</div>`;
-            chat.scrollTop = chat.scrollHeight;
+            if (data.action === 'changeVideo') {
+                initPlayer(data.videoId);
+            }
+            if (player) {
+                if (data.action === 'play') player.play();
+                if (data.action === 'pause') player.pause();
+            }
         });
     </script>
 </body>
