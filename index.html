@@ -74,7 +74,7 @@
     </div>
 
     <script>
-        const socket = io('ССЫЛКА_НА_ТВОЙ_СЕРВЕР'); // Например, localhost:3000
+        const socket = io('https://nrave.onrender.com'); // Например, localhost:3000
         const roomId = new URLSearchParams(window.location.search).get('room') || 'main';
         socket.emit('joinRoom', roomId);
 
