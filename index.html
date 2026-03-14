@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>VK Together Watch</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://vk.com/js/api/videoplayer.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #video-container {
+            width: 800px;
+            height: 450px;
+            background: #000;
+            margin-top: 20px;
+        }
+
+        .controls {
+            margin: 20px;
+        }
+
+        input {
+            padding: 10px;
+            width: 300px;
+        }
+
+        #chat {
+            width: 800px;
+            height: 150px;
+            border: 1px solid #444;
+            overflow-y: scroll;
+            margin-top: 10px;
+            padding: 10px;
+            background: #222;
+        }
+
+        .chat-input {
+            width: 800px;
+            display: flex;
+        }
+
+        .chat-input input {
+            flex-grow: 1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Смотрим ВК вместе</h2>
+
+    <div class="controls">
+        <input type="text" id="vkLink" placeholder="Вставьте ссылку на видео ВК">
+        <button onclick="loadVideo()">Загрузить видео</button>
+    </div>
+
+    <div id="video-container">
+        <!-- Сюда вставится плеер ВК -->
+        <div id="vk_player"></div>
+    </div>
+
+    <div id="chat"></div>
+    <div class="chat-input">
+        <input type="text" id="msgInput" placeholder="Сообщение...">
+        <button onclick="sendMessage()">Отправить</button>
+    </div>
+
+    <script>
+        const socket = io('ССЫЛКА_НА_ТВОЙ_СЕРВЕР'); // Например, localhost:3000
+        const roomId = new URLSearchParams(window.location.search).get('room') || 'main';
+        socket.emit('joinRoom', roomId);
+
+        let player;
+
+        // Функция парсинга ссылки ВК для получения ID видео
+        function loadVideo() {
+            const link = document.getElementById('vkLink').value;
+            // Пример ссылки: https://vk.com/video-22822305_456239017
+            const match = link.match(/video(-?\[0-9]+_[0-9]+)/);
+            if (match) {
+                const videoId = match[1];
+                initPlayer(videoId);
+            }
+        }
+
+        function initPlayer(videoId) {
+            const [oid, vid] = videoId.split('_');
+
+            // Удаляем старый плеер если есть
+            document.getElementById('vk_player').innerHTML = '';
+
+            player = new VK.VideoPlayer(document.getElementById('vk_player'), {
+                oid: oid,
+                id: vid,
+                width: 800,
+                height: 450,
+                autoplay: 0
+            });
+
+            // Слушаем события плеера
+            player.on('started', () => sync('play'));
+            player.on('resumed', () => sync('play'));
+            player.on('paused', () => sync('pause'));
+        }
+
+        function sync(action) {
+            socket.emit('playerEvent', {
+                roomId: roomId,
+                action: action,
+                time: player.getCurrentTime()
+            });
+        }
+
+        // Получаем команды от друга
+        socket.on('playerEvent', (data) => {
+            if (data.action === 'play') player.play();
+            if (data.action === 'pause') player.pause();
+            // Чтобы не было бесконечного цикла, здесь нужна проверка разницы во времени
+        });
+
+        // Чат
+        function sendMessage() {
+            const msg = document.getElementById('msgInput').value;
+            socket.emit('message', { roomId, text: msg });
+            document.getElementById('msgInput').value = '';
+        }
+
+        socket.on('message', (data) => {
+            const chat = document.getElementById('chat');
+            chat.innerHTML += `<div><b>Аноним:</b> ${data.text}</div>`;
+            chat.scrollTop = chat.scrollHeight;
+        });
+    </script>
+</body>
+
+</html>
