@@ -9,80 +9,75 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://vk.com/js/api/videoplayer.js"></script>
     <style>
-        /* Базовые настройки для всего экрана */
+        /* Блокируем любые прыжки всей страницы */
         html,
         body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            background: #121212;
+            background: #000;
             color: white;
             font-family: -apple-system, sans-serif;
             overflow: hidden;
             position: fixed;
-            /* Фикс для iOS */
         }
 
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
+        /* 1. ВИДЕО - ПРИБИТО К ВЕРХУ НАМЕРТВО */
+        .video-fixed-block {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
-            max-width: 900px;
-            margin: 0 auto;
-            background: #1a1a1a;
-        }
-
-        /* БЛОК ВИДЕО */
-        .video-section {
-            width: 100%;
-            flex-shrink: 0;
+            z-index: 9999;
+            /* Поверх всего */
             background: #000;
-            z-index: 100;
         }
 
-        .video-wrapper {
+        .video-aspect {
             width: 100%;
             aspect-ratio: 16/9;
             position: relative;
-            background: #000;
         }
 
-        #vk_player_iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
-
-        /* ОВЕРЛЕЙ ДЛЯ МОБИЛ */
         #mobile-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.8);
             display: none;
             justify-content: center;
             align-items: center;
-            z-index: 101;
+            z-index: 10000;
             text-align: center;
-            cursor: pointer;
         }
 
-        /* ПАНЕЛЬ УПРАВЛЕНИЯ */
-        .controls {
+        /* 2. КОНТЕНТ ПОД ВИДЕО (ЧАТ И УПРАВЛЕНИЕ) */
+        .scrollable-content {
+            position: absolute;
+            top: calc(100vw * 0.5625);
+            /* Отступ ровно на высоту видео (16:9) */
+            left: 0;
+            right: 0;
+            bottom: 70px;
+            /* Оставляем место под ввод сообщения */
             display: flex;
-            gap: 8px;
-            padding: 10px;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Панель управления */
+        .controls-row {
+            padding: 8px;
             background: #1a1a1a;
-            border-bottom: 1px solid #333;
+            display: flex;
+            gap: 5px;
             flex-shrink: 0;
         }
 
-        .controls input {
+        .controls-row input {
             flex-grow: 1;
             background: #333;
             color: white;
@@ -90,26 +85,26 @@
             padding: 10px;
             border-radius: 6px;
             font-size: 16px;
+            /* Фикс зума iOS */
         }
 
-        .controls button {
-            padding: 10px 15px;
+        .controls-row button {
+            padding: 10px;
             border: none;
             border-radius: 6px;
             font-weight: bold;
-            cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
         }
 
-        /* ЧАТ */
+        /* Чат */
         #chat {
             flex-grow: 1;
             overflow-y: auto;
+            padding: 10px;
             background: #121212;
-            padding: 15px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             -webkit-overflow-scrolling: touch;
         }
 
@@ -117,24 +112,28 @@
             background: #2c2c2c;
             padding: 8px 12px;
             border-radius: 12px;
-            font-size: 15px;
+            font-size: 14px;
             align-self: flex-start;
             max-width: 85%;
-            line-height: 1.4;
         }
 
         .msg b {
             color: #71aaeb;
-            margin-right: 6px;
+            margin-right: 5px;
         }
 
-        /* ВВОД СООБЩЕНИЯ */
-        .chat-footer {
+        /* Ввод сообщения (прибит к низу) */
+        .footer-input {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            background: #1a1a1a;
             display: flex;
             gap: 8px;
             padding: 10px;
-            background: #1a1a1a;
-            flex-shrink: 0;
+            box-sizing: border-box;
             padding-bottom: calc(10px + env(safe-area-inset-bottom));
         }
 
@@ -143,8 +142,8 @@
             background: #333;
             color: white;
             border: none;
-            padding: 12px 15px;
-            border-radius: 25px;
+            padding: 0 15px;
+            border-radius: 20px;
             font-size: 16px;
         }
 
@@ -153,58 +152,60 @@
             color: white;
             border: none;
             padding: 0 20px;
-            border-radius: 25px;
+            border-radius: 20px;
+            font-weight: bold;
         }
 
-        #status-bar {
-            font-size: 11px;
-            text-align: center;
-            padding: 4px;
-            color: #888;
-            background: #111;
-        }
+        /* Стиль для ПК (чтобы не было на весь экран) */
+        @media (min-width: 800px) {
 
-        /* Если экран очень низкий (клавиатура) */
-        @media (max-height: 450px) {
-            .controls {
-                display: none;
+            .video-fixed-block,
+            .scrollable-content,
+            .footer-input {
+                max-width: 800px;
+                left: 50%;
+                transform: translateX(-50%);
             }
 
-            .msg {
-                font-size: 13px;
-                padding: 5px 10px;
+            .video-fixed-block {
+                top: 0;
             }
+
+            .scrollable-content {
+                top: 450px;
+            }
+
+            /* Фиксированная высота для ПК */
         }
     </style>
 </head>
 
 <body>
 
-    <div class="app-container">
-        <div id="status-bar">Подключение...</div>
-
-        <div class="video-section">
-            <div class="video-wrapper">
-                <div id="mobile-overlay" onclick="activateMobilePlayer()">
-                    <div>🍿 Видео готово!<br><small>Нажми сюда, чтобы смотреть с другом</small></div>
-                </div>
-                <div id="player-container" style="width:100%; height:100%;">
-                    <!-- Сюда вставим iframe -->
-                </div>
+    <!-- ВИДЕО (ВСЕГДА ТУТ) -->
+    <div class="video-fixed-block">
+        <div class="video-aspect">
+            <div id="mobile-overlay" onclick="activateMobilePlayer()">
+                <div>🍿 Видео готово!<br>Нажми сюда</div>
             </div>
-            <div class="controls">
-                <input type="text" id="vkLink" placeholder="Ссылка на видео ВК">
-                <button onclick="loadVideo()" style="background:#4c75a3; color:white;">Загрузить</button>
-                <button id="hostBtn" onclick="setMeAsHost()" style="background:#444; color:white;">Я Хозяин</button>
-            </div>
+            <div id="player-target" style="width:100%; height:100%;"></div>
         </div>
+        <div class="controls-row">
+            <input type="text" id="vkLink" placeholder="Ссылка на ВК">
+            <button onclick="loadVideo()" style="background:#4c75a3; color:white;">Загрузить</button>
+            <button id="hostBtn" onclick="setMeAsHost()" style="background:#444; color:white;">Я Хозяин</button>
+        </div>
+    </div>
 
+    <!-- ЧАТ (ПОД ВИДЕО) -->
+    <div class="scrollable-content">
         <div id="chat"></div>
+    </div>
 
-        <div class="chat-footer">
-            <input type="text" id="msgInput" placeholder="Сообщение...">
-            <button class="btn-send" onclick="sendMessage()">➤</button>
-        </div>
+    <!-- ВВОД (В САМОМ НИЗУ) -->
+    <div class="footer-input">
+        <input type="text" id="msgInput" placeholder="Сообщение...">
+        <button class="btn-send" onclick="sendMessage()">➤</button>
     </div>
 
     <script>
@@ -216,17 +217,13 @@
         let hostActualState = 'pause';
 
         socket.on('connect', () => {
-            document.getElementById('status-bar').innerText = "✅ В комнате: " + roomId;
             socket.emit('joinRoom', roomId);
         });
 
         function setMeAsHost() {
             isHost = true;
-            const btn = document.getElementById('hostBtn');
-            btn.style.background = "orange";
-            btn.style.color = "black";
-            btn.innerText = "⭐ ВЫ ХОЗЯИН";
-            document.getElementById('status-bar').innerText = "ВЫ УПРАВЛЯЕТЕ ВИДЕО";
+            document.getElementById('hostBtn').style.background = "orange";
+            document.getElementById('hostBtn').style.color = "black";
         }
 
         function loadVideo() {
@@ -242,19 +239,15 @@
 
         function initPlayer(videoId, startTime = 0) {
             currentVideoId = videoId;
-            const container = document.getElementById('player-container');
+            const container = document.getElementById('player-target');
             const parts = videoId.split('_');
-
-            // Создаем iframe
             const iframe = document.createElement('iframe');
-            iframe.id = "vk_player_iframe";
             iframe.src = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&js_api=1&autoplay=1`;
             iframe.allow = "autoplay; encrypted-media; fullscreen";
-
             container.innerHTML = '';
             container.appendChild(iframe);
 
-            if (!isHost) { document.getElementById('mobile-overlay').style.display = 'flex'; }
+            if (!isHost) document.getElementById('mobile-overlay').style.display = 'flex';
 
             setTimeout(() => {
                 try {
@@ -264,7 +257,7 @@
                         player.on('resumed', () => { if (isHost) { hostActualState = 'play'; sendEvent('play'); } });
                         player.on('paused', () => { if (isHost) { hostActualState = 'pause'; sendEvent('pause'); } });
                     });
-                } catch (e) { console.error("Ошибка SDK:", e); }
+                } catch (e) { console.error(e); }
             }, 600);
         }
 
@@ -275,16 +268,12 @@
 
         function sendEvent(action) {
             if (!isHost || !player) return;
-            socket.emit('playerEvent', {
-                roomId, action, time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState
-            });
+            socket.emit('playerEvent', { roomId, action, time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState });
         }
 
         setInterval(() => {
             if (isHost && player) {
-                socket.emit('playerEvent', {
-                    roomId, action: 'syncTime', time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState
-                });
+                socket.emit('playerEvent', { roomId, action: 'syncTime', time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState });
             }
         }, 2000);
 
@@ -297,8 +286,7 @@
             if (player) {
                 if (data.state === 'play') player.play();
                 else if (data.state === 'pause') player.pause();
-                let myTime = player.getCurrentTime();
-                if (Math.abs(myTime - data.time) > 3) player.seek(data.time);
+                if (Math.abs(player.getCurrentTime() - data.time) > 3) player.seek(data.time);
             }
         });
 
