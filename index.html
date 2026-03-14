@@ -107,19 +107,30 @@
             const vid = parts[1];
 
             const container = document.getElementById('vk_player');
-            container.innerHTML = '';
+            container.innerHTML = ''; // Очищаем контейнер
 
-            player = new VK.VideoPlayer(container, {
-                oid: oid,
-                id: vid,
-                width: "100%",
-                height: 450,
-                autoplay: 1
-            });
+            // 1. Создаем iframe вручную (это надежнее)
+            const iframe = document.createElement('iframe');
 
-            // Когда плеер готов, вешаем события на кнопки Плей/Пауза
+            // Формируем правильный адрес встраивания (video_ext.php)
+            // Добавляем js_api=1, чтобы библиотека ВК могла им управлять
+            iframe.src = `https://vk.com/video_ext.php?oid=${oid}&id=${vid}&js_api=1`;
+
+            iframe.width = "800";
+            iframe.height = "450";
+            iframe.frameBorder = "0";
+            iframe.allow = "autoplay; encrypted-media; fullscreen";
+            iframe.id = "vk_iframe"; // Даем ему ID
+
+            container.appendChild(iframe);
+
+            // 2. Инициализируем управление плеером через библиотеку ВК
+            // Теперь мы передаем сам iframe, а не настройки
+            player = new VK.VideoPlayer(iframe);
+
+            // 3. Вешаем события
             player.on('inited', () => {
-                console.log("Плеер готов");
+                console.log("Плеер успешно инициализирован");
 
                 player.on('started', () => sendSync('play'));
                 player.on('resumed', () => sendSync('play'));
