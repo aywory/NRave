@@ -137,11 +137,45 @@
             }
         }
 
-        /* 3. ВЕРСИЯ ДЛЯ МОБИЛЬНЫХ (ОБЩАЯ) */
+        /* --- СТИЛИ ДЛЯ МОБИЛЬНЫХ (Смартфоны) --- */
         @media (max-width: 900px) {
-            #app-root {
-                height: 100dvh;
-                /* Используем динамическую высоту */
+
+            /* 1. Убираем ссылку, кнопку ОК и корону на мобилках */
+            .top-bar {
+                display: none !important;
+            }
+
+            /* 2. Делаем видео гибким, чтобы оно могло уменьшаться */
+            .video-box {
+                flex-shrink: 1 !important;
+                /* Разрешаем сжиматься */
+                flex-basis: auto;
+                max-height: 30vh;
+                /* Видео занимает не более 30% высоты экрана */
+                min-height: 160px;
+                /* Но не становится совсем микроскопическим */
+                background: #000;
+                display: flex;
+                justify-content: center;
+            }
+
+            /* Подправляем контейнер внутри, чтобы видео не искажалось */
+            .video-ratio {
+                aspect-ratio: 16 / 9;
+                height: 100%;
+                width: auto;
+            }
+
+            /* 3. Даем чату больше пространства */
+            #chat {
+                flex-grow: 2;
+                /* Чат теперь главнее видео по размеру */
+            }
+
+            /* Делаем сообщения чуть компактнее для экономии места */
+            .msg {
+                font-size: 13px;
+                padding: 6px 10px;
             }
         }
 
@@ -218,26 +252,22 @@
     <script>
         // === 1. ФИКС ВЫСОТЫ ДЛЯ IPHONE (чтобы видео не улетало при открытии клавиатуры) ===
 
+        // Фикс для iPhone (обновленный)
         if (window.visualViewport) {
             const iosFix = () => {
                 const root = document.getElementById('app-root');
-
-                // Устанавливаем высоту приложения равную только видимой части экрана (без клавиатуры)
                 root.style.height = window.visualViewport.height + 'px';
-
-                // Принудительно запрещаем Safari прокручивать страницу вверх
                 window.scrollTo(0, 0);
 
-                // Скроллим чат вниз, чтобы видеть последние сообщения при открытой клаве
+                // Прокручиваем чат до самого низа
                 const chat = document.getElementById('chat');
-                if (chat) chat.scrollTop = chat.scrollHeight;
+                if (chat) {
+                    chat.scrollTop = chat.scrollHeight;
+                }
             };
 
-            // Слушаем изменение размера (открытие клавы) и прокрутку самого окна
             window.visualViewport.addEventListener('resize', iosFix);
             window.visualViewport.addEventListener('scroll', iosFix);
-
-            // Срабатывает один раз при полной загрузке страницы
             window.addEventListener('load', iosFix);
         }
 
