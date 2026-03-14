@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
     <title>Together Watch</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://vk.com/js/api/videoplayer.js"></script>
@@ -140,42 +141,49 @@
         /* --- СТИЛИ ДЛЯ МОБИЛЬНЫХ (Смартфоны) --- */
         @media (max-width: 900px) {
 
-            /* 1. Убираем ссылку, кнопку ОК и корону на мобилках */
-            .top-bar {
+            /* Скрываем всё лишнее, чтобы освободить место */
+            header,
+            .top-bar,
+            #status-info {
                 display: none !important;
             }
 
-            /* 2. Делаем видео гибким, чтобы оно могло уменьшаться */
+            /* Видео на всю ширину без лишних отступов */
             .video-box {
-                flex-shrink: 1 !important;
-                /* Разрешаем сжиматься */
-                flex-basis: auto;
-                max-height: 30vh;
-                /* Видео занимает не более 30% высоты экрана */
-                min-height: 160px;
-                /* Но не становится совсем микроскопическим */
+                width: 100%;
                 background: #000;
-                display: flex;
-                justify-content: center;
+                margin: 0;
+                padding: 0;
             }
 
-            /* Подправляем контейнер внутри, чтобы видео не искажалось */
             .video-ratio {
+                width: 100%;
                 aspect-ratio: 16 / 9;
-                height: 100%;
-                width: auto;
+                /* Сохраняем формат кино */
             }
 
-            /* 3. Даем чату больше пространства */
+            /* Поднимаем чат выше, чтобы он не оставлял дырок */
+            #app-root {
+                background: #000;
+            }
+
             #chat {
-                flex-grow: 2;
-                /* Чат теперь главнее видео по размеру */
+                padding: 10px 10px 0 10px;
+                background: #000;
             }
 
-            /* Делаем сообщения чуть компактнее для экономии места */
+            /* Сообщения в стиле Rave (более компактные) */
             .msg {
-                font-size: 13px;
-                padding: 6px 10px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 14px;
+                font-size: 14px;
+                margin-bottom: 2px;
+            }
+
+            /* Поле ввода прижимаем максимально плотно */
+            .footer {
+                background: #000;
+                padding: 5px 10px;
             }
         }
 
