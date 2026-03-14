@@ -159,21 +159,46 @@
 
         function initPlayer(videoId, startTime = 0) {
             const container = document.getElementById('vk_player');
-            container.innerHTML = '';
-            const playerDiv = document.createElement('div');
-            container.appendChild(playerDiv);
+            container.innerHTML = ''; // Чистим старое
 
             const parts = videoId.split('_');
-            player = new VK.VideoPlayer(playerDiv, {
-                oid: parts[0], id: parts[1], width: "100%", height: 450, autoplay: 1
-            });
+            const oid = parts[0];
+            const vid = parts[1];
 
-            player.on('inited', () => {
-                if (startTime > 0) player.seek(startTime);
+            // 1. Создаем правильный URL для встраивания вручную
+            // Параметр js_api=1 ОБЯЗАТЕЛЕН, чтобы работал пульт управления
+            const vkUrl = `https://vk.com/video_ext.php?oid=${oid}&id=${vid}&js_api=1`;
 
-                player.on('resumed', () => { if (isHost) sendEvent('play'); });
-                player.on('paused', () => { if (isHost) sendEvent('pause'); });
-            });
+            // 2. Создаем iframe вручную
+            const iframe = document.createElement('iframe');
+            iframe.src = vkUrl;
+            iframe.width = "100%";
+            iframe.height = "450";
+            iframe.id = "vk_iframe";
+            iframe.frameBorder = "0";
+            iframe.allow = "autoplay; encrypted-media; fullscreen";
+
+            container.appendChild(iframe);
+
+            console.log("Фрейм создан, подключаем пульт управления...");
+
+            // 3. Подключаем библиотеку ВК к нашему фрейму
+            // Даем небольшую задержку 300мс, чтобы браузер успел отрисовать фрейм
+            setTimeout(() => {
+                try {
+                    player = new VK.VideoPlayer(iframe);
+
+                    player.on('inited', () => {
+                        console.log("Успех! Пульт ВК подключен.");
+                        if (startTime > 0) player.seek(startTime);
+
+                        player.on('resumed', () => { if (isHost) sendEvent('play'); });
+                        player.on('paused', () => { if (isHost) sendEvent('pause'); });
+                    });
+                } catch (e) {
+                    console.error("Библиотека ВК всё еще ругается, но видео должно работать:", e);
+                }
+            }, 300);
         }
 
         function sendEvent(action) {
