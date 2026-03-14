@@ -9,69 +9,37 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://vk.com/js/api/videoplayer.js"></script>
     <style>
+        /* 1. ОБЩИЕ СТИЛИ (ДЛЯ ВСЕХ) */
         * {
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
         }
 
-        html,
-        body {
+        body,
+        html {
             margin: 0;
             padding: 0;
             width: 100%;
-            height: 100%;
             background: #000;
             color: white;
-            font-family: sans-serif;
-            overflow: hidden;
-            position: fixed;
+            font-family: -apple-system, sans-serif;
         }
 
         #app-root {
             display: flex;
             flex-direction: column;
             width: 100%;
-            height: 100%;
-            max-width: 900px;
             margin: 0 auto;
             background: #111;
             position: relative;
+            overflow: hidden;
         }
 
-        /* ПАНЕЛЬ ВВОДА (СВЕРХУ) */
-        .top-bar {
-            display: flex;
-            padding: 10px;
-            gap: 8px;
-            background: #1a1a1a;
-            border-bottom: 1px solid #333;
-            flex-shrink: 0;
-            align-items: center;
-        }
-
-        .top-bar input {
-            flex-grow: 1;
-            background: #2c2c2c;
-            border: none;
-            color: white;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-
-        .btn {
-            padding: 10px 15px;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        /* БЛОК ВИДЕО (16:9) */
+        /* Стили элементов плеера и чата (общие) */
         .video-box {
             width: 100%;
-            background: #000;
             flex-shrink: 0;
+            background: #000;
         }
 
         .video-ratio {
@@ -80,7 +48,6 @@
             position: relative;
         }
 
-        /* ФИКС ДЛЯ ИЗОБРАЖЕНИЯ: iframe должен быть на весь блок */
         iframe {
             position: absolute;
             top: 0;
@@ -88,25 +55,8 @@
             width: 100% !important;
             height: 100% !important;
             border: none;
-            display: block;
         }
 
-        #mobile-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            text-align: center;
-            cursor: pointer;
-        }
-
-        /* ЧАТ */
         #chat {
             flex-grow: 1;
             overflow-y: auto;
@@ -115,7 +65,6 @@
             flex-direction: column;
             gap: 8px;
             background: #121212;
-            -webkit-overflow-scrolling: touch;
         }
 
         .msg {
@@ -133,42 +82,107 @@
             font-size: 12px;
         }
 
-        /* ВВОД СООБЩЕНИЯ (ВНИЗУ) */
+        .top-bar,
         .footer {
-            padding: 10px;
-            background: #1a1a1a;
             display: flex;
+            padding: 10px;
             gap: 8px;
+            background: #1a1a1a;
             flex-shrink: 0;
-            padding-bottom: calc(10px + env(safe-area-inset-bottom));
         }
 
-        #msgInput {
+        .top-bar input,
+        .footer input {
             flex-grow: 1;
             background: #2c2c2c;
             border: none;
             color: white;
-            padding: 12px 18px;
-            border-radius: 25px;
+            border-radius: 8px;
             font-size: 16px;
+            padding: 10px;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
         }
 
         .send-btn {
             background: #2ea043;
             color: white;
-            border: none;
             width: 45px;
             height: 45px;
             border-radius: 50%;
             font-size: 20px;
             flex-shrink: 0;
+            border: none;
         }
 
-        #status-info {
-            font-size: 10px;
-            text-align: center;
-            color: #555;
-            padding: 2px;
+        /* 2. ВЕРСИЯ ДЛЯ ПК (Широкий экран) */
+        @media (min-width: 901px) {
+            body {
+                overflow: auto;
+            }
+
+            /* Разрешаем обычный скролл на ПК */
+            #app-root {
+                max-width: 900px;
+                height: 100vh;
+                /* Высота на весь экран */
+                border-left: 1px solid #333;
+                border-right: 1px solid #333;
+            }
+        }
+
+        /* 3. ВЕРСИЯ ДЛЯ МОБИЛЬНЫХ (ОБЩАЯ) */
+        @media (max-width: 900px) {
+            #app-root {
+                height: 100dvh;
+                /* Используем динамическую высоту */
+            }
+        }
+
+        /* 4. ВЕРСИЯ СПЕЦИАЛЬНО ДЛЯ АЙФОНОВ (iOS) */
+        /* Этот блок сработает только на устройствах Apple */
+        @supports (-webkit-touch-callout: none) {
+
+            html,
+            body {
+                position: fixed;
+                /* ЖЕСТКО приклеиваем экран к границам */
+                overflow: hidden;
+                height: 100%;
+                width: 100%;
+            }
+
+            #app-root {
+                /* Высота будет управляться скриптом visualViewport, который мы писали ранее */
+                height: 100%;
+            }
+
+            #chat {
+                -webkit-overflow-scrolling: touch;
+                /* Плавный скролл для iOS */
+            }
+
+            /* Убираем системный зум при клике на инпуты */
+            input {
+                font-size: 16px !important;
+            }
+        }
+
+        /* 5. ВЕРСИЯ ДЛЯ АНДРОИД */
+        /* Если это не айфон и экран маленький */
+        @media (max-width: 900px) and (not (-webkit-touch-callout: none)) {
+
+            html,
+            body {
+                overflow: hidden;
+                height: 100vh;
+            }
         }
     </style>
 </head>
@@ -202,108 +216,206 @@
     </div>
 
     <script>
-        /* ФИКС ДЛЯ АЙФОНА (ВЫСОТА И СКРОЛЛ) */
-        function syncHeight() {
-            const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-            document.getElementById('app-root').style.height = vh + 'px';
-            window.scrollTo(0, 0);
+        // === 1. ФИКС ВЫСОТЫ ДЛЯ IPHONE (чтобы видео не улетало при открытии клавиатуры) ===
+
+        if (window.visualViewport) {
+            const iosFix = () => {
+                const root = document.getElementById('app-root');
+
+                // Устанавливаем высоту приложения равную только видимой части экрана (без клавиатуры)
+                root.style.height = window.visualViewport.height + 'px';
+
+                // Принудительно запрещаем Safari прокручивать страницу вверх
+                window.scrollTo(0, 0);
+
+                // Скроллим чат вниз, чтобы видеть последние сообщения при открытой клаве
+                const chat = document.getElementById('chat');
+                if (chat) chat.scrollTop = chat.scrollHeight;
+            };
+
+            // Слушаем изменение размера (открытие клавы) и прокрутку самого окна
+            window.visualViewport.addEventListener('resize', iosFix);
+            window.visualViewport.addEventListener('scroll', iosFix);
+
+            // Срабатывает один раз при полной загрузке страницы
+            window.addEventListener('load', iosFix);
         }
+
+
+        // === 1. ФИКСЫ ДЛЯ МОБИЛЬНЫХ (iOS / Android) ===
+
+        function syncHeight() {
+            // Вычисляем высоту видимого окна (особенно важно, когда вылезает клавиатура)
+            const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            // Принудительно сжимаем приложение под эту высоту
+            document.getElementById('app-root').style.height = vh + 'px';
+            // Не даем Safari прокручивать страницу вверх-вниз
+            window.scrollTo(0, 0);
+
+            // Автоматически прокручиваем чат вниз при изменении размера экрана
+            const chat = document.getElementById('chat');
+            if (chat) chat.scrollTop = chat.scrollHeight;
+        }
+
+        // Слушаем изменения размера экрана (например, открытие клавиатуры)
         if (window.visualViewport) window.visualViewport.addEventListener('resize', syncHeight);
         window.addEventListener('load', syncHeight);
 
-        const roomId = 'nrave_private_room_777';
-        const socket = io('https://nrave.onrender.com');
-        let player = null, isHost = false, currentVideoId = "", hostActualState = 'pause';
 
+        // === 2. ПОДКЛЮЧЕНИЕ К СЕРВЕРУ ===
+
+        const roomId = 'nrave_private_room_777'; // Твое уникальное имя комнаты
+        const socket = io('https://nrave.onrender.com'); // Ссылка на твой сервер на Render
+
+        let player = null;      // Объект плеера ВК
+        let isHost = false;     // Флаг: являемся ли мы хозяином комнаты
+        let currentVideoId = ""; // ID текущего видео (например, -123_456)
+        let hostActualState = 'pause'; // Текущее состояние (играет или пауза)
+
+        // При успешном подключении заходим в комнату
         socket.on('connect', () => {
             document.getElementById('status-info').innerText = "✅ Подключено: " + roomId;
             socket.emit('joinRoom', roomId);
         });
 
+
+        // === 3. УПРАВЛЕНИЕ РОЛЯМИ И ЗАГРУЗКОЙ ===
+
+        // Назначаем себя хозяином (только хозяин управляет временем)
         function setMeAsHost() {
             isHost = true;
             document.getElementById('hostBtn').style.background = "orange";
+            document.getElementById('status-info').innerText = "⭐ Вы хозяин комнаты";
         }
 
+        // Получаем ссылку из поля ввода и запускаем видео
         function loadVideo() {
             const link = document.getElementById('vkLink').value;
-            const match = link.match(/video(-?\d+_\d+)/);
+            const match = link.match(/video(-?\d+_\d+)/); // Вырезаем ID из ссылки ВК
+
             if (match) {
                 currentVideoId = match[1];
-                setMeAsHost();
+                setMeAsHost(); // Тот, кто загрузил видео, автоматически хозяин
                 initPlayer(currentVideoId);
-                socket.emit('playerEvent', { roomId, action: 'changeVideo', videoId: currentVideoId, time: 0, state: 'play' });
+
+                // Отправляем сигнал всем в комнате: "Смените видео на это"
+                socket.emit('playerEvent', {
+                    roomId,
+                    action: 'changeVideo',
+                    videoId: currentVideoId,
+                    time: 0,
+                    state: 'play'
+                });
             }
         }
+
+
+        // === 4. РАБОТА С ПЛЕЕРОМ ВК ===
 
         function initPlayer(videoId, startTime = 0) {
             currentVideoId = videoId;
             const container = document.getElementById('player-container');
             const parts = videoId.split('_');
 
+            // Создаем iframe (встраиваемое окно) для видео ВК
             const iframe = document.createElement('iframe');
             iframe.src = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&js_api=1&autoplay=1`;
             iframe.allow = "autoplay; encrypted-media; fullscreen";
 
-            container.innerHTML = '';
+            container.innerHTML = ''; // Очищаем контейнер от старых плееров
             container.appendChild(iframe);
 
+            // Если мы не хозяин, показываем кнопку "Нажми для синхронизации" (нужно для звука на мобилах)
             if (!isHost) document.getElementById('mobile-overlay').style.display = 'flex';
 
+            // Инициализируем пульт управления плеером (API ВК)
             setTimeout(() => {
                 try {
                     player = new VK.VideoPlayer(iframe);
                     player.on('inited', () => {
+                        // Если зашли в середину видео, перематываем на нужное время
                         if (startTime > 0) player.seek(startTime);
+
+                        // Слушаем нажатия Плей и Пауза (только если мы хозяин)
                         player.on('resumed', () => { if (isHost) { hostActualState = 'play'; sendSync('play'); } });
                         player.on('paused', () => { if (isHost) { hostActualState = 'pause'; sendSync('pause'); } });
                     });
-                } catch (e) { console.error(e); }
+                } catch (e) { console.error("Ошибка ВК SDK:", e); }
             }, 600);
         }
 
+        // Убираем темный экран на телефонах и запускаем видео
         function activateMobilePlayer() {
             document.getElementById('mobile-overlay').style.display = 'none';
             if (player) player.play();
         }
 
+
+        // === 5. СИНХРОНИЗАЦИЯ (ОТПРАВКА И ПРИЕМ) ===
+
+        // Функция отправки нашего времени и статуса (плей/пауза) на сервер
         function sendSync(action) {
             if (!isHost || !player) return;
-            socket.emit('playerEvent', { roomId, action, time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState });
+            socket.emit('playerEvent', {
+                roomId,
+                action,
+                time: player.getCurrentTime(),
+                videoId: currentVideoId,
+                state: hostActualState
+            });
         }
 
+        // Хозяин каждые 2 секунды шлет свое время, чтобы остальные не отставали
         setInterval(() => {
             if (isHost && player) sendSync('syncTime');
         }, 2000);
 
+        // Слушаем команды, которые приходят от другого человека через сервер
         socket.on('playerEvent', (data) => {
+            // Если мы сами хозяин, игнорируем чужие команды (кроме смены видео)
             if (isHost && data.action !== 'changeVideo') return;
+
+            // Если хозяин сменил видео
             if (data.action === 'changeVideo') {
                 if (data.videoId !== currentVideoId) initPlayer(data.videoId, data.time);
                 return;
             }
+
+            // Если видео уже создано, управляем им
             if (player) {
+                // Синхронизируем Плей/Пауза
                 if (data.state === 'play') player.play();
                 else if (data.state === 'pause') player.pause();
-                if (Math.abs(player.getCurrentTime() - data.time) > 3) player.seek(data.time);
+
+                // Если разница во времени больше 3 секунд, принудительно перематываем
+                let myTime = player.getCurrentTime();
+                if (Math.abs(myTime - data.time) > 3) player.seek(data.time);
             }
         });
+
+
+        // === 6. ЧАТ ===
 
         function sendMessage() {
             const input = document.getElementById('msgInput');
             if (input.value.trim() !== "") {
                 socket.emit('message', { roomId, text: input.value });
-                input.value = '';
+                input.value = ''; // Очищаем поле после отправки
             }
         }
 
+        // При получении сообщения от сервера добавляем его в список
         socket.on('message', (data) => {
             const chat = document.getElementById('chat');
             chat.innerHTML += `<div class="msg"><b>Аноним:</b> ${data.text}</div>`;
-            chat.scrollTop = chat.scrollHeight;
+            chat.scrollTop = chat.scrollHeight; // Прокрутка чата вниз
         });
 
-        document.getElementById('msgInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+        // Отправка сообщения по кнопке Enter
+        document.getElementById('msgInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
     </script>
 </body>
 
