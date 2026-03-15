@@ -277,11 +277,10 @@
     </div>
 
     <script>
-        /* 1. ФИКСЫ ДЛЯ IPHONE И КЛАВИАТУРЫ */
+        /* 1. ФИКСЫ IPHONE */
         if (window.visualViewport) {
             const iosFix = () => {
-                const root = document.getElementById('app-root');
-                root.style.height = window.visualViewport.height + 'px';
+                document.getElementById('app-root').style.height = window.visualViewport.height + 'px';
                 window.scrollTo(0, 0);
                 const chat = document.getElementById('chat');
                 if (chat) chat.scrollTop = chat.scrollHeight;
@@ -291,7 +290,7 @@
             window.addEventListener('load', iosFix);
         }
 
-        /* 2. ПОДКЛЮЧЕНИЕ К СЕРВЕРУ */
+        /* 2. СЕРВЕР */
         const roomId = 'nrave_private_room_777';
         const socket = io('https://nrave.onrender.com');
         let player = null, isHost = false, currentVideoId = "", hostActualState = 'pause';
@@ -301,11 +300,10 @@
             socket.emit('joinRoom', roomId);
         });
 
-        /* 3. УПРАВЛЕНИЕ РОЛЯМИ */
         function setMeAsHost() {
             isHost = true;
             document.getElementById('hostBtn').style.background = "orange";
-            document.getElementById('status-info').innerText = "⭐ Вы хозяин комнаты";
+            document.getElementById('status-info').innerText = "⭐ Вы хозяин";
         }
 
         function loadVideo() {
@@ -314,12 +312,13 @@
             if (match) {
                 currentVideoId = match[1];
                 setMeAsHost();
+                hostActualState = 'play';
                 initPlayer(currentVideoId);
                 socket.emit('playerEvent', { roomId, action: 'changeVideo', videoId: currentVideoId, time: 0, state: 'play' });
             }
         }
 
-        /* 4. ПЛЕЕР ВК */
+        /* 3. ПЛЕЕР И ПАУЗА (ИСПРАВЛЕНО) */
         function initPlayer(videoId, startTime = 0) {
             currentVideoId = videoId;
             const container = document.getElementById('player-container');
@@ -337,6 +336,9 @@
                     player = new VK.VideoPlayer(iframe);
                     player.on('inited', () => {
                         if (startTime > 0) player.seek(startTime);
+
+                        // Слушаем события плеера у хозяина
+                        player.on('started', () => { if (isHost) { hostActualState = 'play'; sendSync('play'); } });
                         player.on('resumed', () => { if (isHost) { hostActualState = 'play'; sendSync('play'); } });
                         player.on('paused', () => { if (isHost) { hostActualState = 'pause'; sendSync('pause'); } });
                     });
@@ -351,14 +353,20 @@
 
         function sendSync(action) {
             if (!isHost || !player) return;
-            socket.emit('playerEvent', { roomId, action, time: player.getCurrentTime(), videoId: currentVideoId, state: hostActualState });
+            socket.emit('playerEvent', {
+                roomId, action,
+                time: player.getCurrentTime(),
+                videoId: currentVideoId,
+                state: hostActualState
+            });
         }
 
+        // Каждые 2 секунды шлем статус (плей или пауза)
         setInterval(() => {
             if (isHost && player) sendSync('syncTime');
         }, 2000);
 
-        /* 5. ПРИЕМ КОМАНД С СЕРВЕРА */
+        /* ПРИЕМ КОМАНД (ИСПРАВЛЕНО) */
         socket.on('playerEvent', (data) => {
             if (isHost && data.action !== 'changeVideo') return;
             if (data.action === 'changeVideo') {
@@ -366,13 +374,24 @@
                 return;
             }
             if (player) {
-                if (data.state === 'play') player.play();
-                else if (data.state === 'pause') player.pause();
-                if (Math.abs(player.getCurrentTime() - data.time) > 3) player.seek(data.time);
+                // Если статус хозяина - PLAY, а у нас пауза - запускаем
+                if (data.state === 'play') {
+                    player.play();
+                }
+                // Если статус хозяина - PAUSE, а мы играем - останавливаем
+                else if (data.state === 'pause') {
+                    player.pause();
+                }
+
+                // Синхронизация времени
+                let myTime = player.getCurrentTime();
+                if (Math.abs(myTime - data.time) > 3) {
+                    player.seek(data.time);
+                }
             }
         });
 
-        /* 6. ЧАТ */
+        /* 4. ЧАТ */
         function sendMessage() {
             const input = document.getElementById('msgInput');
             if (input.value.trim() !== "") {
@@ -380,13 +399,11 @@
                 input.value = '';
             }
         }
-
         socket.on('message', (data) => {
             const chat = document.getElementById('chat');
             chat.innerHTML += `<div class="msg"><b>Аноним:</b> ${data.text}</div>`;
             chat.scrollTop = chat.scrollHeight;
         });
-
         document.getElementById('msgInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
     </script>
 </body>
