@@ -367,26 +367,42 @@
         }, 2000);
 
         /* ПРИЕМ КОМАНД (ИСПРАВЛЕНО) */
+        // Храним последнее состояние, чтобы не спамить плеер одинаковыми командами
+        let lastReceivedState = "";
+
         socket.on('playerEvent', (data) => {
+            // Хозяин игнорирует свои же команды
             if (isHost && data.action !== 'changeVideo') return;
 
+            // Смена видео
             if (data.action === 'changeVideo') {
                 if (data.videoId !== currentVideoId) initPlayer(data.videoId, data.time);
                 return;
             }
 
             if (player) {
-                // Синхронизируем состояние (Play/Pause)
-                if (data.state === 'play') {
+                // --- УМНАЯ СИНХРОНИЗАЦИЯ СОСТОЯНИЯ ---
+
+                // Нажимаем ПЛЕЙ только если мы еще НЕ играем и пришла команда PLAY
+                if (data.state === 'play' && lastReceivedState !== 'play') {
+                    console.log("Хозяин запустил видео. Включаю...");
                     player.play();
-                } else if (data.state === 'pause') {
+                    lastReceivedState = 'play';
+                }
+                // Нажимаем ПАУЗУ только если мы еще НЕ на паузе и пришла команда PAUSE
+                else if (data.state === 'pause' && lastReceivedState !== 'pause') {
+                    console.log("Хозяин поставил на паузу. Останавливаю...");
                     player.pause();
+                    lastReceivedState = 'pause';
                 }
 
-                // Синхронизируем время (увеличили порог до 5 секунд)
+                // --- УМНАЯ СИНХРОНИЗАЦИЯ ВРЕМЕНИ ---
                 let myTime = player.getCurrentTime();
-                if (Math.abs(myTime - data.time) > 5) { // 5 секунд прощаем интернету
-                    console.log("Рассинхрон больше 5 сек, подтягиваюсь...");
+
+                // Увеличиваем точность: если разница больше 3 секунд И видео играет
+                // (на паузе время не подтягиваем, чтобы не было дерганий)
+                if (data.state === 'play' && Math.abs(myTime - data.time) > 3) {
+                    console.log("Синхронизирую время с хозяином...");
                     player.seek(data.time);
                 }
             }
