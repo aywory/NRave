@@ -29,6 +29,8 @@ html {
   display: flex;
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .main-content {
@@ -268,43 +270,47 @@ iframe {
   #app-root {
     flex-direction: column;
   }
+
+  /* Растягиваем контент на весь экран */
+  .main-content {
+    flex-grow: 0; /* Видео занимает только свое место */
+    width: 100%;
+  }
+
   .sidebar {
     width: 100%;
-    flex-grow: 1;
+    flex-grow: 1; /* Чат занимает всё оставшееся место */
     border-left: none;
+    background: rgba(20, 20, 20, 0.95); /* Чуть темнее на мобилках */
   }
+
+  .video-box {
+    background: #000;
+    width: 100%;
+  }
+
+  .video-ratio {
+    aspect-ratio: 16/9; /* Четкая пропорция без рамок */
+    width: 100%;
+  }
+
+  /* Скрываем верхнюю панель на мобилках совсем, если она не нужна */
   .top-bar {
     display: none;
   }
+
   .footer {
+    padding: 10px;
+    /* Учитываем вырез под челку/полоску снизу на iPhone/Android */
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    background: #1a1a1a;
   }
-}
 
-/* Класс для скрытия верхней панели */
-.top-bar.hidden {
-  display: none;
-}
-
-/* Кнопка-стрелка */
-.toggle-ui-btn {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(26, 26, 26, 0.8);
-  border: 1px solid #333;
-  border-top: none;
-  color: #888;
-  padding: 2px 15px;
-  font-size: 12px;
-  cursor: pointer;
-  border-radius: 0 0 10px 10px;
-  z-index: 1001;
-  transition: 0.2s;
-}
-
-.toggle-ui-btn:hover {
-  color: #fff;
-  background: #222;
+  /* Делаем кнопку скрытия на мобилках поменьше и пониже */
+  .toggle-ui-btn {
+    top: 5px;
+    padding: 1px 10px;
+    font-size: 10px;
+    opacity: 0.6;
+  }
 }
