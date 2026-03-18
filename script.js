@@ -164,12 +164,6 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", iosFix);
 }
 
-function addEmoji(emoji) {
-  const input = document.getElementById("msgInput");
-  input.value += emoji;
-  input.focus();
-}
-
 const emojiList = [
   "😀",
   "😃",
