@@ -195,7 +195,9 @@ iframe {
   border: 1px solid #444;
   border-radius: 12px;
   display: none; /* Скрыта по умолчанию */
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(35px, 1fr));
+  overflow-x: hidden; /* Полностью запрещаем горизонтальный скролл */
+  width: calc(100% - 20px); /* Четко ограничиваем ширину панели */
   padding: 10px;
   gap: 5px;
   z-index: 1000;
@@ -223,6 +225,16 @@ iframe {
   background: rgba(255, 255, 255, 0.1);
 }
 
+.emoji-btn {
+  background: transparent; /* Убираем белый фон */
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .footer {
   padding: 10px;
   background: var(--bg-panel);
