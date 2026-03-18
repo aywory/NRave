@@ -7,26 +7,22 @@ app.use(cors());
 
 const io = require("socket.io")(http, {
   cors: { origin: "*", methods: ["GET", "POST"] },
+  pingTimeout: 60000, // Ждать 60 секунд перед тем как считать пользователя отключенным
+  pingInterval: 25000, // Проверять связь каждые 25 секунд
 });
 
-// Здесь сервер будет хранить данные о видео в комнатах
 let roomsData = {};
 
 io.on("connection", (socket) => {
   socket.on("joinRoom", (roomId) => {
     socket.join(roomId);
-    console.log("Пользователь зашел в: " + roomId);
-
-    // Если в этой комнате уже что-то смотрят, сразу отправляем данные новому участнику
     if (roomsData[roomId]) {
       socket.emit("playerEvent", roomsData[roomId]);
     }
   });
 
   socket.on("playerEvent", (data) => {
-    // Сервер запоминает последнее действие (видео и время)
     roomsData[data.roomId] = data;
-    // Рассылает остальным
     socket.to(data.roomId).emit("playerEvent", data);
   });
 

@@ -369,23 +369,24 @@
         /* ПРИЕМ КОМАНД (ИСПРАВЛЕНО) */
         socket.on('playerEvent', (data) => {
             if (isHost && data.action !== 'changeVideo') return;
+
             if (data.action === 'changeVideo') {
                 if (data.videoId !== currentVideoId) initPlayer(data.videoId, data.time);
                 return;
             }
+
             if (player) {
-                // Если статус хозяина - PLAY, а у нас пауза - запускаем
+                // Синхронизируем состояние (Play/Pause)
                 if (data.state === 'play') {
                     player.play();
-                }
-                // Если статус хозяина - PAUSE, а мы играем - останавливаем
-                else if (data.state === 'pause') {
+                } else if (data.state === 'pause') {
                     player.pause();
                 }
 
-                // Синхронизация времени
+                // Синхронизируем время (увеличили порог до 5 секунд)
                 let myTime = player.getCurrentTime();
-                if (Math.abs(myTime - data.time) > 3) {
+                if (Math.abs(myTime - data.time) > 5) { // 5 секунд прощаем интернету
+                    console.log("Рассинхрон больше 5 сек, подтягиваюсь...");
                     player.seek(data.time);
                 }
             }
