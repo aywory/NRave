@@ -309,3 +309,16 @@ function toggleEmojiPicker() {
 
 // Запуск инициализации смайлов
 initEmojiPicker();
+
+function toggleTopBar() {
+  const bar = document.getElementById("topBar");
+  const btn = document.getElementById("toggleBtn");
+
+  if (bar.classList.contains("hidden")) {
+    bar.classList.remove("hidden");
+    btn.innerText = "▲"; // Стрелка вверх, когда открыто
+  } else {
+    bar.classList.add("hidden");
+    btn.innerText = "▼"; // Стрелка вниз, когда скрыто
+  }
+}

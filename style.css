@@ -280,3 +280,31 @@ iframe {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 }
+
+/* Класс для скрытия верхней панели */
+.top-bar.hidden {
+  display: none;
+}
+
+/* Кнопка-стрелка */
+.toggle-ui-btn {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(26, 26, 26, 0.8);
+  border: 1px solid #333;
+  border-top: none;
+  color: #888;
+  padding: 2px 15px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 0 0 10px 10px;
+  z-index: 1001;
+  transition: 0.2s;
+}
+
+.toggle-ui-btn:hover {
+  color: #fff;
+  background: #222;
+}

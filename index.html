@@ -20,9 +20,10 @@
     <div id="app-root">
         <!-- ЛЕВАЯ ПАНЕЛЬ: ВИДЕО -->
         <div class="main-content">
+            <div class="toggle-ui-btn" onclick="toggleTopBar()" id="toggleBtn">▲</div>
             <div id="status-info">Подключение...</div>
 
-            <div class="top-bar">
+            <div class="top-bar" id="topBar">
                 <input type="text" id="vkLink" placeholder="Вставьте ссылку на видео ВК">
                 <button class="btn btn-ok" onclick="loadVideo()">OK</button>
                 <button id="hostBtn" class="btn btn-host" onclick="setMeAsHost()">👑</button>
