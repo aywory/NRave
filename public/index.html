@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Together Watch</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://vk.com/js/api/videoplayer.js"></script>
+</head>
+
+<body>
+    <div id="app-root">
+        <div class="main-content">
+            <div id="status-info">Подключение...</div>
+            <div class="top-bar">
+                <input type="text" id="vkLink" placeholder="Ссылка на видео ВК">
+                <button class="btn" onclick="loadVideo()" style="background: var(--accent); color: white;">OK</button>
+                <button id="hostBtn" class="btn" onclick="setMeAsHost()"
+                    style="background: #444; color: white;">👑</button>
+            </div>
+            <div class="video-box">
+                <div class="video-ratio">
+                    <div id="mobile-overlay" onclick="activateMobilePlayer()">
+                        <div><span style="font-size: 24px;">🍿</span><br>Видео готово!<br><small>Нажми для
+                                синхронизации</small></div>
+                    </div>
+                    <div id="player-container"></div>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar">
+            <div id="chat"></div>
+            <div class="footer">
+                <input type="text" id="msgInput" placeholder="Сообщение...">
+                <button class="btn" onclick="sendMessage()"
+                    style="background: #2ea043; color: white; border-radius: 50%; width: 40px; height: 40px; padding: 0;">➤</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
