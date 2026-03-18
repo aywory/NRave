@@ -144,7 +144,7 @@ socket.on("message", (data) => {
             <b>${userName}</b>
             <span class="msg-time">${userTime}</span>
         </div>
-        <div>${data.text}</div>
+<div class="msg-text">${data.text}</div>
     `;
 
   chat.appendChild(msgDiv);
