@@ -290,10 +290,11 @@
             window.addEventListener('load', iosFix);
         }
 
-        /* 2. СЕРВЕР */
+        /* 2. СЕРВЕР И ПЕРЕМЕННЫЕ */
         const roomId = 'nrave_private_room_777';
         const socket = io('https://nrave.onrender.com');
         let player = null, isHost = false, currentVideoId = "", hostActualState = 'pause';
+        let lastReceivedState = ""; // Для предотвращения спама командами
 
         socket.on('connect', () => {
             document.getElementById('status-info').innerText = "✅ Подключено: " + roomId;
@@ -304,6 +305,8 @@
             isHost = true;
             document.getElementById('hostBtn').style.background = "orange";
             document.getElementById('status-info').innerText = "⭐ Вы хозяин";
+            // При назначении хозяином определяем статус по факту
+            hostActualState = 'play';
         }
 
         function loadVideo() {
@@ -318,12 +321,13 @@
             }
         }
 
-        /* 3. ПЛЕЕР И ПАУЗА (ИСПРАВЛЕНО) */
+        /* 3. ИНИЦИАЛИЗАЦИЯ ПЛЕЕРА */
         function initPlayer(videoId, startTime = 0) {
             currentVideoId = videoId;
             const container = document.getElementById('player-container');
             const parts = videoId.split('_');
             const iframe = document.createElement('iframe');
+            // Добавляем mute=1 для надежности запуска на мобильных
             iframe.src = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&js_api=1&autoplay=1`;
             iframe.allow = "autoplay; encrypted-media; fullscreen";
             container.innerHTML = '';
@@ -337,18 +341,21 @@
                     player.on('inited', () => {
                         if (startTime > 0) player.seek(startTime);
 
-                        // Слушаем события плеера у хозяина
-                        player.on('started', () => { if (isHost) { hostActualState = 'play'; sendSync('play'); } });
-                        player.on('resumed', () => { if (isHost) { hostActualState = 'play'; sendSync('play'); } });
-                        player.on('paused', () => { if (isHost) { hostActualState = 'pause'; sendSync('pause'); } });
+                        player.on('started', () => { if (isHost) hostActualState = 'play'; });
+                        player.on('resumed', () => { if (isHost) hostActualState = 'play'; });
+                        player.on('paused', () => { if (isHost) hostActualState = 'pause'; });
                     });
                 } catch (e) { console.error(e); }
             }, 600);
         }
 
+        // Критически важная функция для гостя!
         function activateMobilePlayer() {
             document.getElementById('mobile-overlay').style.display = 'none';
-            if (player) player.play();
+            lastReceivedState = ""; // Сбрасываем флаг, чтобы форсировать запуск
+            if (player) {
+                player.play();
+            }
         }
 
         function sendSync(action) {
@@ -361,54 +368,48 @@
             });
         }
 
-        // Каждые 2 секунды шлем статус (плей или пауза)
         setInterval(() => {
             if (isHost && player) sendSync('syncTime');
         }, 2000);
 
-        /* ПРИЕМ КОМАНД (ИСПРАВЛЕНО) */
-        // Храним последнее состояние, чтобы не спамить плеер одинаковыми командами
-        let lastReceivedState = "";
-
+        /* 4. ПРИЕМ КОМАНД (ИСПРАВЛЕННЫЙ) */
         socket.on('playerEvent', (data) => {
-            // Хозяин игнорирует свои же команды
             if (isHost && data.action !== 'changeVideo') return;
 
-            // Смена видео
             if (data.action === 'changeVideo') {
+                lastReceivedState = ""; // Сброс при смене видео
                 if (data.videoId !== currentVideoId) initPlayer(data.videoId, data.time);
                 return;
             }
 
             if (player) {
-                // --- УМНАЯ СИНХРОНИЗАЦИЯ СОСТОЯНИЯ ---
-
-                // Нажимаем ПЛЕЙ только если мы еще НЕ играем и пришла команда PLAY
-                if (data.state === 'play' && lastReceivedState !== 'play') {
-                    console.log("Хозяин запустил видео. Включаю...");
-                    player.play();
-                    lastReceivedState = 'play';
+                // Если хозяин СМОТРИТ, а мы стоим — пробуем запустить
+                if (data.state === 'play') {
+                    // Если мы еще не знали, что нужно играть, или если плеер на паузе
+                    if (lastReceivedState !== 'play') {
+                        player.play();
+                        lastReceivedState = 'play';
+                    }
                 }
-                // Нажимаем ПАУЗУ только если мы еще НЕ на паузе и пришла команда PAUSE
-                else if (data.state === 'pause' && lastReceivedState !== 'pause') {
-                    console.log("Хозяин поставил на паузу. Останавливаю...");
-                    player.pause();
-                    lastReceivedState = 'pause';
+                // Если хозяин на ПАУЗЕ — ставим паузу
+                else if (data.state === 'pause') {
+                    if (lastReceivedState !== 'pause') {
+                        player.pause();
+                        lastReceivedState = 'pause';
+                    }
                 }
 
-                // --- УМНАЯ СИНХРОНИЗАЦИЯ ВРЕМЕНИ ---
-                let myTime = player.getCurrentTime();
-
-                // Увеличиваем точность: если разница больше 3 секунд И видео играет
-                // (на паузе время не подтягиваем, чтобы не было дерганий)
-                if (data.state === 'play' && Math.abs(myTime - data.time) > 3) {
-                    console.log("Синхронизирую время с хозяином...");
-                    player.seek(data.time);
+                // Синхронизация времени только если видео должно идти
+                if (data.state === 'play') {
+                    let myTime = player.getCurrentTime();
+                    if (Math.abs(myTime - data.time) > 4) {
+                        player.seek(data.time);
+                    }
                 }
             }
         });
 
-        /* 4. ЧАТ */
+        /* 5. ЧАТ */
         function sendMessage() {
             const input = document.getElementById('msgInput');
             if (input.value.trim() !== "") {
