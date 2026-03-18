@@ -117,20 +117,24 @@ iframe {
   width: 320px;
   display: flex;
   flex-direction: column;
-  background: var(--bg-panel);
-  border-left: 1px solid #333;
-  overflow: hidden; /* Чтобы ничего не вылезало за границы */
+  overflow: hidden; /* Оставь это, чтобы чат не "ломался" */
+
+  /* Твой новый дизайн */
+  background: rgba(26, 26, 26, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 #chat {
   flex-grow: 1;
   overflow-y: auto;
-  overflow-x: hidden; /* Убираем горизонтальный скролл */
+  overflow-x: hidden;
   padding: 15px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: #121212;
+  background: transparent; /* Это важно, чтобы видеть блюр за чатом */
 }
 
 /* Красивый тонкий скроллбар для Chrome/Safari */
@@ -165,6 +169,32 @@ iframe {
   display: block;
   font-size: 12px;
   margin-bottom: 4px;
+}
+
+/* Кнопка эмодзи */
+.emoji-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 5px;
+  transition: transform 0.2s;
+}
+.emoji-btn:hover {
+  transform: scale(1.2);
+}
+
+/* Оформление времени в сообщении */
+.msg-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.msg-time {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: 8px;
 }
 
 .footer {

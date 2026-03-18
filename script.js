@@ -6,7 +6,7 @@ let player = null,
   currentVideoId = "";
 let hostActualState = "pause",
   lastReceivedState = "";
-let myNickname = "Гость " + Math.floor(Math.random() * 1000);
+let myNickname = "Смотрящий";
 
 socket.on("connect", () => {
   document.getElementById("status-info").innerText = "✅ Подключено: " + roomId;
@@ -15,6 +15,7 @@ socket.on("connect", () => {
 
 function setMeAsHost() {
   isHost = true;
+  myNickname = "Хозяин";
   document.getElementById("hostBtn").style.background = "#ff9800";
   document.getElementById("status-info").innerText = "⭐ Вы управляете видео";
   hostActualState = "play";
@@ -113,26 +114,39 @@ socket.on("playerEvent", (data) => {
 function sendMessage() {
   const input = document.getElementById("msgInput");
   const text = input.value.trim();
+  if (text === "" || text.length > 500) return;
 
-  if (text === "") return;
+  // Генерируем текущее время
+  const now = new Date();
+  const timeStr =
+    now.getHours().toString().padStart(2, "0") +
+    ":" +
+    now.getMinutes().toString().padStart(2, "0");
 
-  // Лимит 500 символов на сообщение
-  if (text.length > 500) {
-    alert("Сообщение слишком длинное (макс. 500 символов)");
-    return;
-  }
-
-  socket.emit("message", { roomId, text, user: myNickname });
+  socket.emit("message", {
+    roomId,
+    text,
+    user: myNickname,
+    time: timeStr, // Отправляем время всем
+  });
   input.value = "";
 }
-
 socket.on("message", (data) => {
   const chat = document.getElementById("chat");
   const msgDiv = document.createElement("div");
   msgDiv.className = "msg";
-  // Добавлен fallback, если user не пришел
-  const userName = data.user || "Аноним";
-  msgDiv.innerHTML = `<b>${userName}:</b>${data.text}`;
+
+  const userName = data.user || "Смотрящий";
+  const userTime = data.time || "--:--";
+
+  msgDiv.innerHTML = `
+        <div class="msg-info">
+            <b>${userName}</b>
+            <span class="msg-time">${userTime}</span>
+        </div>
+        <div>${data.text}</div>
+    `;
+
   chat.appendChild(msgDiv);
   chat.scrollTop = chat.scrollHeight;
 });
@@ -148,4 +162,10 @@ if (window.visualViewport) {
     window.scrollTo(0, 0);
   };
   window.visualViewport.addEventListener("resize", iosFix);
+}
+
+function addEmoji(emoji) {
+  const input = document.getElementById("msgInput");
+  input.value += emoji;
+  input.focus();
 }
