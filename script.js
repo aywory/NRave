@@ -169,3 +169,149 @@ function addEmoji(emoji) {
   input.value += emoji;
   input.focus();
 }
+
+const emojiList = [
+  "😀",
+  "😃",
+  "😄",
+  "😁",
+  "😆",
+  "😅",
+  "😂",
+  "🤣",
+  "😊",
+  "😇",
+  "🙂",
+  "🙃",
+  "😉",
+  "😌",
+  "😍",
+  "🥰",
+  "😘",
+  "😗",
+  "😙",
+  "😚",
+  "😋",
+  "😛",
+  "😝",
+  "😜",
+  "🤪",
+  "🤨",
+  "🧐",
+  "🤓",
+  "😎",
+  "🤩",
+  "🥳",
+  "😏",
+  "😒",
+  "😞",
+  "😔",
+  "😟",
+  "😕",
+  "🙁",
+  "☹️",
+  "😣",
+  "😖",
+  "😫",
+  "😩",
+  "🥺",
+  "😢",
+  "😭",
+  "😤",
+  "😠",
+  "😡",
+  "🤬",
+  "🤯",
+  "😳",
+  "🥵",
+  "🥶",
+  "😱",
+  "😨",
+  "😰",
+  "😥",
+  "😓",
+  "🤗",
+  "🤔",
+  "🤭",
+  "🤫",
+  "🤥",
+  "😶",
+  "😐",
+  "😑",
+  "😬",
+  "🙄",
+  "😯",
+  "😦",
+  "😧",
+  "😮",
+  "😲",
+  "🥱",
+  "😴",
+  "🤤",
+  "😪",
+  "😵",
+  "🤐",
+  "🥴",
+  "🤢",
+  "🤮",
+  "🤧",
+  "😷",
+  "🤒",
+  "🤕",
+  "🤑",
+  "🤠",
+  "😈",
+  "👿",
+  "👹",
+  "👺",
+  "🤡",
+  "👻",
+  "💀",
+  "☠️",
+  "👽",
+  "👾",
+  "🤖",
+  "🎃",
+  "😺",
+  "😸",
+  "😹",
+  "😻",
+  "😼",
+  "😽",
+  "🙀",
+  "😿",
+  "😾",
+  "🙌",
+  "👏",
+  "👍",
+  "👎",
+  "👊",
+  "✊",
+  "👋",
+  "💪",
+  "🙏",
+];
+
+function initEmojiPicker() {
+  const picker = document.getElementById("emojiPicker");
+  emojiList.forEach((emoji) => {
+    const span = document.createElement("span");
+    span.className = "emoji-item";
+    span.innerText = emoji;
+    span.onclick = () => {
+      const input = document.getElementById("msgInput");
+      input.value += emoji;
+      input.focus();
+    };
+    picker.appendChild(span);
+  });
+}
+
+function toggleEmojiPicker() {
+  const picker = document.getElementById("emojiPicker");
+  const isVisible = picker.style.display === "grid";
+  picker.style.display = isVisible ? "none" : "grid";
+}
+
+// Запуск инициализации смайлов
+initEmojiPicker();
