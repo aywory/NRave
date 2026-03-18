@@ -20,40 +20,41 @@
     <div id="app-root">
         <!-- ЛЕВАЯ ПАНЕЛЬ: ВИДЕО -->
         <div class="main-content">
+            <!-- Кнопка скрытия -->
             <div class="toggle-ui-btn" onclick="toggleTopBar()" id="toggleBtn">▲</div>
-            <div class="top-bar" id="topBar"></div>
-            <div id="status-info">Подключение...</div>
 
+            <!-- Все элементы управления ДОЛЖНЫ быть внутри этого блока -->
+            <div class="top-bar" id="topBar">
+                <div id="status-info">Подключение...</div>
+                <input type="text" id="vkLink" placeholder="Вставьте ссылку на видео ВК">
+                <button class="btn btn-ok" onclick="loadVideo()">OK</button>
+                <button id="hostBtn" class="btn btn-host" onclick="setMeAsHost()">👑</button>
+            </div>
 
-            <input type="text" id="vkLink" placeholder="Вставьте ссылку на видео ВК">
-            <button class="btn btn-ok" onclick="loadVideo()">OK</button>
-            <button id="hostBtn" class="btn btn-host" onclick="setMeAsHost()">👑</button>
-        </div>
-
-        <div class="video-box">
-            <div class="video-ratio">
-                <div id="mobile-overlay" onclick="activateMobilePlayer()">
-                    <div>
-                        <span style="font-size: 40px;">🍿</span><br>
-                        <b>Видео готово!</b><br>
-                        <small>Нажми сюда для синхронизации</small>
+            <div class="video-box">
+                <div class="video-ratio">
+                    <div id="mobile-overlay" onclick="activateMobilePlayer()">
+                        <div>
+                            <span style="font-size: 40px;">🍿</span><br>
+                            <b>Видео готово!</b><br>
+                            <small>Нажми сюда для синхронизации</small>
+                        </div>
                     </div>
+                    <div id="player-container"></div>
                 </div>
-                <div id="player-container"></div>
             </div>
         </div>
-    </div>
 
-    <!-- ПРАВАЯ ПАНЕЛЬ: ЧАТ -->
-    <div class="sidebar">
-        <div id="chat"></div>
-        <div id="emojiPicker" class="emoji-picker"></div>
-        <div class="footer">
-            <button class="emoji-btn" onclick="toggleEmojiPicker()">😀</button>
-            <input type="text" id="msgInput" placeholder="Написать в чат...">
-            <button class="send-btn" onclick="sendMessage()">➤</button>
+        <!-- ПРАВАЯ ПАНЕЛЬ: ЧАТ -->
+        <div class="sidebar">
+            <div id="chat"></div>
+            <div id="emojiPicker" class="emoji-picker"></div>
+            <div class="footer">
+                <button class="emoji-btn" onclick="toggleEmojiPicker()">😀</button>
+                <input type="text" id="msgInput" placeholder="Написать в чат...">
+                <button class="send-btn" onclick="sendMessage()">➤</button>
+            </div>
         </div>
-    </div>
     </div>
 
     <!-- Подключаем наш файл с логикой -->

@@ -316,9 +316,9 @@ function toggleTopBar() {
 
   if (bar.classList.contains("hidden")) {
     bar.classList.remove("hidden");
-    btn.innerText = "▲"; // Стрелка вверх, когда открыто
+    btn.innerText = "▲";
   } else {
     bar.classList.add("hidden");
-    btn.innerText = "▼"; // Стрелка вниз, когда скрыто
+    btn.innerText = "▼";
   }
 }

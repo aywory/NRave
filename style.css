@@ -265,7 +265,18 @@ iframe {
   cursor: pointer;
   flex-shrink: 0;
 }
+/* Класс для скрытия панели */
+.top-bar.hidden {
+  display: none !important;
+}
 
+/* Стили для статуса внутри панели, чтобы он не ломал верстку */
+#status-info {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  margin-right: 5px;
+}
 @media (max-width: 900px) {
   #app-root {
     flex-direction: column;
@@ -312,5 +323,21 @@ iframe {
     padding: 1px 10px;
     font-size: 10px;
     opacity: 0.6;
+  }
+
+  .top-bar {
+    flex-wrap: wrap; /* Чтобы элементы переносились, если не влезли */
+    padding: 5px;
+    gap: 5px;
+  }
+
+  .top-bar input {
+    font-size: 14px;
+    padding: 6px;
+  }
+
+  .btn {
+    padding: 6px 10px;
+    font-size: 12px;
   }
 }
