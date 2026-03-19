@@ -87,25 +87,38 @@ setInterval(() => {
       state: hostActualState,
     });
   }
-}, 2000);
+}, 4000);
 
 socket.on("playerEvent", (data) => {
   if (isHost && data.action !== "changeVideo") return;
+
   if (data.action === "changeVideo") {
     if (data.videoId !== currentVideoId) initPlayer(data.videoId, data.time);
     return;
   }
+
   if (player) {
-    if (data.state === "play" && lastReceivedState !== "play") {
-      player.play();
-      lastReceivedState = "play";
-    } else if (data.state === "pause" && lastReceivedState !== "pause") {
-      player.pause();
-      lastReceivedState = "pause";
+    // 1. Синхронизируем состояние ПАУЗА/ПЛЕЙ только если оно реально изменилось
+    if (data.state === "play") {
+      if (lastReceivedState !== "play") {
+        player.play();
+        lastReceivedState = "play";
+      }
+    } else if (data.state === "pause") {
+      if (lastReceivedState !== "pause") {
+        player.pause();
+        lastReceivedState = "pause";
+      }
     }
+
+    // 2. Синхронизируем время ТОЛЬКО если разрыв реально огромный
+    // 65 мбит интернета позволяют другу буферизировать видео,
+    // поэтому дадим ему окно в 10 секунд, чтобы плеер не дергался.
     if (data.state === "play") {
       let myTime = player.getCurrentTime();
-      if (Math.abs(myTime - data.time) > 3) player.seek(data.time);
+      if (Math.abs(myTime - data.time) > 10) {
+        player.seek(data.time);
+      }
     }
   }
 });
