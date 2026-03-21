@@ -341,3 +341,29 @@ iframe {
     font-size: 12px;
   }
 }
+
+/* Список пользователей с временем */
+#user-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 5px 15px;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 12px;
+}
+
+.user-badge {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #ccc;
+}
+
+.user-badge span {
+  color: #fff;
+  font-weight: bold;
+  font-family: monospace;
+  margin-left: 5px;
+}
+
+/* Остальные стили без изменений */
