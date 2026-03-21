@@ -6,20 +6,32 @@ let player = null,
   currentVideoId = "";
 let hostActualState = "pause",
   lastReceivedState = "";
-let myNickname = prompt("Ваше имя?", "Зритель") || "Зритель";
 
-// UI для отображения времени участников
+// Спрашиваем имя один раз при входе
+let myNickname =
+  localStorage.getItem("chat_nickname") ||
+  prompt("Ваше имя для чата?", "Смотрящий");
+if (!myNickname) myNickname = "Смотрящий";
+localStorage.setItem("chat_nickname", myNickname);
+
+// Создаем панель для отображения времени всех участников
 const statusList = document.createElement("div");
-statusList.id = "user-times";
-document.querySelector(".top-bar").after(statusList);
+statusList.id = "user-times-panel";
+// Вставляем её после верхней панели
+setTimeout(() => {
+  const topBar = document.getElementById("topBar");
+  if (topBar) topBar.after(statusList);
+}, 500);
 
 socket.on("connect", () => {
-  document.getElementById("status-info").innerText = "✅ Подключено";
+  document.getElementById("status-info").innerText = "✅ Подключено: " + roomId;
+  // Отправляем имя при подключении
   socket.emit("joinRoom", { roomId, nickname: myNickname });
 });
 
+// Функция форматирования времени (00:00:00)
 function formatTime(seconds) {
-  if (isNaN(seconds)) return "00:00:00";
+  if (isNaN(seconds) || seconds < 0) return "00:00:00";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
@@ -31,6 +43,7 @@ function setMeAsHost() {
   myNickname = "👑 " + myNickname.replace("👑 ", "");
   document.getElementById("hostBtn").style.background = "#ff9800";
   document.getElementById("status-info").innerText = "⭐ Вы управляете видео";
+  hostActualState = "play";
 }
 
 function loadVideo() {
@@ -88,7 +101,7 @@ function activateMobilePlayer() {
   if (player) player.play();
 }
 
-// 1. Отправка данных ХОЗЯИНА для синхронизации (раз в 3 сек)
+// 1. СИНХРОНИЗАЦИЯ ХОЗЯИНА (раз в 4 сек)
 setInterval(() => {
   if (isHost && player) {
     socket.emit("playerEvent", {
@@ -99,11 +112,11 @@ setInterval(() => {
       state: hostActualState,
     });
   }
-}, 3000);
+}, 4000);
 
-// 2. Отправка ЛЮБОГО игрока на сервер для списка "кто где" (раз в 2 сек)
+// 2. ОБНОВЛЕНИЕ СТАТУСА (отправляем свое время на сервер раз в 2 сек)
 setInterval(() => {
-  if (player && player.getCurrentTime) {
+  if (player && typeof player.getCurrentTime === "function") {
     socket.emit("updateMyStatus", {
       roomId,
       time: player.getCurrentTime(),
@@ -112,8 +125,9 @@ setInterval(() => {
   }
 }, 2000);
 
-// Принимаем статус комнаты
+// Получаем данные о времени всех участников
 socket.on("roomStatus", (users) => {
+  if (!statusList) return;
   let html = "";
   for (let id in users) {
     const u = users[id];
@@ -131,39 +145,47 @@ socket.on("playerEvent", (data) => {
   }
 
   if (player) {
-    // Синхронизация состояния (Play/Pause)
-    if (data.state === "play" && lastReceivedState !== "play") {
-      player.play();
-      lastReceivedState = "play";
-    } else if (data.state === "pause" && lastReceivedState !== "pause") {
-      player.pause();
-      lastReceivedState = "pause";
+    // Пауза / Плей
+    if (data.state === "play") {
+      if (lastReceivedState !== "play") {
+        player.play();
+        lastReceivedState = "play";
+      }
+    } else if (data.state === "pause") {
+      if (lastReceivedState !== "pause") {
+        player.pause();
+        lastReceivedState = "pause";
+      }
     }
 
-    // МЯГКАЯ СИНХРОНИЗАЦИЯ ВРЕМЕНИ
-    // Если разница больше 15 секунд — значит друг сильно отстал/убежал, перематываем.
-    // Если меньше — не трогаем, пусть буферизуется спокойно.
-    let myTime = player.getCurrentTime();
-    let diff = Math.abs(myTime - data.time);
-
-    if (data.state === "play" && diff > 15) {
-      console.log("Синхронизация: прыжок на " + diff + " сек");
-      player.seek(data.time + 1); // +1 сек на компенсацию задержки сети
+    // МЯГКАЯ СИНХРОНИЗАЦИЯ: Порог 15 секунд, чтобы не дергало при плохом интернете
+    if (data.state === "play") {
+      let myTime = player.getCurrentTime();
+      if (Math.abs(myTime - data.time) > 15) {
+        player.seek(data.time + 1); // +1 сек компенсация задержки
+      }
     }
   }
 });
 
-/* ЧАТ БЕЗ ИЗМЕНЕНИЙ ( sendMessage / socket.on("message") ) */
+/* --- ЧАТ (ПОЛНЫЙ КОД) --- */
 function sendMessage() {
   const input = document.getElementById("msgInput");
   const text = input.value.trim();
   if (text === "" || text.length > 500) return;
+
   const now = new Date();
   const timeStr =
     now.getHours().toString().padStart(2, "0") +
     ":" +
     now.getMinutes().toString().padStart(2, "0");
-  socket.emit("message", { roomId, text, user: myNickname, time: timeStr });
+
+  socket.emit("message", {
+    roomId,
+    text,
+    user: myNickname,
+    time: timeStr,
+  });
   input.value = "";
 }
 
@@ -171,18 +193,190 @@ socket.on("message", (data) => {
   const chat = document.getElementById("chat");
   const msgDiv = document.createElement("div");
   msgDiv.className = "msg";
-  msgDiv.innerHTML = `<div class="msg-info"><b>${data.user}</b><span class="msg-time">${data.time}</span></div><div class="msg-text">${data.text}</div>`;
+  const userName = data.user || "Смотрящий";
+  const userTime = data.time || "--:--";
+
+  msgDiv.innerHTML = `
+        <div class="msg-info">
+            <b>${userName}</b>
+            <span class="msg-time">${userTime}</span>
+        </div>
+        <div class="msg-text">${data.text}</div>
+    `;
+
   chat.appendChild(msgDiv);
   chat.scrollTop = chat.scrollHeight;
 });
+
 document.getElementById("msgInput").addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
+
+/* --- СМАЙЛИКИ (ПОЛНЫЙ КОД) --- */
+const emojiList = [
+  "😀",
+  "😃",
+  "😄",
+  "😁",
+  "😆",
+  "😅",
+  "😂",
+  "🤣",
+  "😊",
+  "😇",
+  "🙂",
+  "🙃",
+  "😉",
+  "😌",
+  "😍",
+  "🥰",
+  "😘",
+  "😗",
+  "😙",
+  "😚",
+  "😋",
+  "😛",
+  "😝",
+  "😜",
+  "🤪",
+  "🤨",
+  "🧐",
+  "🤓",
+  "😎",
+  "🤩",
+  "🥳",
+  "😏",
+  "😒",
+  "😞",
+  "😔",
+  "😟",
+  "😕",
+  "🙁",
+  "☹️",
+  "😣",
+  "😖",
+  "😫",
+  "😩",
+  "🥺",
+  "😢",
+  "😭",
+  "😤",
+  "😠",
+  "😡",
+  "🤬",
+  "🤯",
+  "😳",
+  "🥵",
+  "🥶",
+  "😱",
+  "😨",
+  "😰",
+  "😥",
+  "😓",
+  "🤗",
+  "🤔",
+  "🤭",
+  "🤫",
+  "🤥",
+  "😶",
+  "😐",
+  "😑",
+  "😬",
+  "🙄",
+  "😯",
+  "😦",
+  "😧",
+  "😮",
+  "😲",
+  "🥱",
+  "😴",
+  "🤤",
+  "😪",
+  "😵",
+  "🤐",
+  "🥴",
+  "🤢",
+  "🤮",
+  "🤧",
+  "😷",
+  "🤒",
+  "🤕",
+  "🤑",
+  "🤠",
+  "😈",
+  "👿",
+  "👹",
+  "👺",
+  "🤡",
+  "👻",
+  "💀",
+  "☠️",
+  "👽",
+  "👾",
+  "🤖",
+  "🎃",
+  "😺",
+  "😸",
+  "😹",
+  "😻",
+  "😼",
+  "😽",
+  "🙀",
+  "😿",
+  "😾",
+  "🙌",
+  "👏",
+  "👍",
+  "👎",
+  "👊",
+  "✊",
+  "👋",
+  "💪",
+  "🙏",
+];
+
+function initEmojiPicker() {
+  const picker = document.getElementById("emojiPicker");
+  if (!picker) return;
+  emojiList.forEach((emoji) => {
+    const span = document.createElement("span");
+    span.className = "emoji-item";
+    span.innerText = emoji;
+    span.onclick = () => {
+      const input = document.getElementById("msgInput");
+      input.value += emoji;
+      input.focus();
+    };
+    picker.appendChild(span);
+  });
+}
+
+function toggleEmojiPicker() {
+  const picker = document.getElementById("emojiPicker");
+  const isVisible = picker.style.display === "grid";
+  picker.style.display = isVisible ? "none" : "grid";
+}
+
 initEmojiPicker();
 
+/* --- ИСПРАВЛЕНИЯ ИНТЕРФЕЙСА --- */
 function toggleTopBar() {
   const bar = document.getElementById("topBar");
   const btn = document.getElementById("toggleBtn");
-  bar.classList.toggle("hidden");
-  btn.innerText = bar.classList.contains("hidden") ? "▼" : "▲";
+  if (bar.classList.contains("hidden")) {
+    bar.classList.remove("hidden");
+    btn.innerText = "▲";
+  } else {
+    bar.classList.add("hidden");
+    btn.innerText = "▼";
+  }
+}
+
+if (window.visualViewport) {
+  const iosFix = () => {
+    document.getElementById("app-root").style.height =
+      window.visualViewport.height + "px";
+    window.scrollTo(0, 0);
+  };
+  window.visualViewport.addEventListener("resize", iosFix);
 }
