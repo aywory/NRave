@@ -12,26 +12,28 @@ const io = require("socket.io")(http, {
 });
 
 let roomsData = {};
-let usersInRooms = {}; // Храним данные пользователей: { roomId: { socketId: { name, time } } }
+let usersInRooms = {};
 
 io.on("connection", (socket) => {
-  socket.on("joinRoom", ({ roomId, nickname }) => {
-    socket.join(roomId);
-    if (!usersInRooms[roomId]) usersInRooms[roomId] = {};
+  console.log("Пользователь подключен:", socket.id);
 
-    usersInRooms[roomId][socket.id] = { name: nickname, time: 0 };
+  socket.on("joinRoom", (data) => {
+    const rId = data.roomId || data;
+    const name = data.nickname || "Смотрящий";
+    socket.join(rId);
 
-    if (roomsData[roomId]) {
-      socket.emit("playerEvent", roomsData[roomId]);
-    }
-    broadcastStatus(roomId);
+    if (!usersInRooms[rId]) usersInRooms[rId] = {};
+    usersInRooms[rId][socket.id] = { name: name, time: 0 };
+
+    if (roomsData[rId]) socket.emit("playerEvent", roomsData[rId]);
+    io.to(rId).emit("roomStatus", usersInRooms[rId]);
   });
 
-  socket.on("updateMyStatus", ({ roomId, time, nickname }) => {
-    if (usersInRooms[roomId] && usersInRooms[roomId][socket.id]) {
-      usersInRooms[roomId][socket.id].time = time;
-      usersInRooms[roomId][socket.id].name = nickname;
-      broadcastStatus(roomId);
+  socket.on("updateMyStatus", (data) => {
+    if (usersInRooms[data.roomId] && usersInRooms[data.roomId][socket.id]) {
+      usersInRooms[data.roomId][socket.id].time = data.time;
+      usersInRooms[data.roomId][socket.id].name = data.nickname;
+      io.to(data.roomId).emit("roomStatus", usersInRooms[data.roomId]);
     }
   });
 
@@ -41,22 +43,19 @@ io.on("connection", (socket) => {
   });
 
   socket.on("message", (data) => {
+    console.log("Сообщение:", data.text);
     io.to(data.roomId).emit("message", data);
   });
 
   socket.on("disconnect", () => {
-    for (let roomId in usersInRooms) {
-      if (usersInRooms[roomId][socket.id]) {
-        delete usersInRooms[roomId][socket.id];
-        broadcastStatus(roomId);
+    for (let rId in usersInRooms) {
+      if (usersInRooms[rId][socket.id]) {
+        delete usersInRooms[rId][socket.id];
+        io.to(rId).emit("roomStatus", usersInRooms[rId]);
       }
     }
   });
-
-  function broadcastStatus(roomId) {
-    io.to(roomId).emit("roomStatus", usersInRooms[roomId]);
-  }
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log("Сервер запущен"));
+http.listen(PORT, () => console.log("Сервер работает на порту", PORT));
