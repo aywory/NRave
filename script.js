@@ -4,8 +4,8 @@ const socket = io("https://nrave.onrender.com");
 let player = null,
   isHost = false,
   currentVideoId = "";
-let hostActualState = "pause",
-  lastReceivedState = "";
+let hostActualState = "pause";
+let isApiReady = false;
 
 // Имя пользователя
 let myNickname =
@@ -20,6 +20,12 @@ setTimeout(() => {
   const topBar = document.getElementById("topBar");
   if (topBar) topBar.after(statusList);
 }, 800);
+
+// Инициализация YouTube API
+function onYouTubeIframeAPIReady() {
+  isApiReady = true;
+  console.log("YouTube API Ready");
+}
 
 socket.on("connect", () => {
   document.getElementById("status-info").innerText = "✅ На связи";
@@ -39,65 +45,74 @@ function setMeAsHost() {
   myNickname = "👑 " + myNickname.replace("👑 ", "");
   document.getElementById("hostBtn").style.background = "#ff9800";
   document.getElementById("status-info").innerText = "⭐ Вы главный";
-  hostActualState = "play";
+}
+
+function extractVideoId(url) {
+  const regExp =
+    /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return match && match[2].length === 11 ? match[2] : null;
 }
 
 function loadVideo() {
-  const link = document.getElementById("vkLink").value;
-  const match = link.match(/video(-?\d+_\d+)/);
-  if (match) {
-    currentVideoId = match[1];
+  const link = document.getElementById("ytLink").value;
+  const videoId = extractVideoId(link);
+  if (videoId) {
+    currentVideoId = videoId;
     setMeAsHost();
-    initPlayer(currentVideoId);
+    initYTPlayer(videoId);
     socket.emit("playerEvent", {
       roomId,
       action: "changeVideo",
-      videoId: currentVideoId,
+      videoId: videoId,
       time: 0,
       state: "play",
     });
+  } else {
+    alert("Неверная ссылка на YouTube");
   }
 }
 
-function initPlayer(videoId, startTime = 0) {
+function initYTPlayer(videoId, startTime = 0) {
+  if (player) {
+    player.destroy();
+  }
+
   currentVideoId = videoId;
-  const container = document.getElementById("player-container");
-  const parts = videoId.split("_");
-  const iframe = document.createElement("iframe");
-  iframe.src = `https://vk.com/video_ext.php?oid=${parts[0]}&id=${parts[1]}&js_api=1&autoplay=1`;
-  iframe.allow = "autoplay; encrypted-media; fullscreen";
-  container.innerHTML = "";
-  container.appendChild(iframe);
-
-  if (!isHost) document.getElementById("mobile-overlay").style.display = "flex";
-
-  setTimeout(() => {
-    try {
-      player = new VK.VideoPlayer(iframe);
-      player.on("inited", () => {
-        if (startTime > 0) player.seek(startTime);
-        player.on("started", () => {
-          if (isHost) hostActualState = "play";
-        });
-        player.on("resumed", () => {
-          if (isHost) hostActualState = "play";
-        });
-        player.on("paused", () => {
-          if (isHost) hostActualState = "pause";
-        });
-      });
-    } catch (e) {
-      console.error(e);
-    }
-  }, 1000);
+  player = new YT.Player("player", {
+    height: "100%",
+    width: "100%",
+    videoId: videoId,
+    playerVars: {
+      autoplay: 1,
+      controls: 1,
+      rel: 0,
+      modestbranding: 1,
+    },
+    events: {
+      onReady: (event) => {
+        if (startTime > 0) event.target.seekTo(startTime);
+        if (!isHost)
+          document.getElementById("mobile-overlay").style.display = "flex";
+      },
+      onStateChange: (event) => {
+        if (isHost) {
+          if (event.data === YT.PlayerState.PLAYING) hostActualState = "play";
+          if (event.data === YT.PlayerState.PAUSED) hostActualState = "pause";
+          if (event.data === YT.PlayerState.BUFFERING)
+            hostActualState = "pause";
+        }
+      },
+    },
+  });
 }
 
 function activateMobilePlayer() {
   document.getElementById("mobile-overlay").style.display = "none";
-  if (player) player.play();
+  if (player && typeof player.playVideo === "function") player.playVideo();
 }
 
-// Отправка данных ХОЗЯИНА (раз в 4 сек)
+// Отправка данных ХОЗЯИНА
 setInterval(() => {
   if (isHost && player && typeof player.getCurrentTime === "function") {
     socket.emit("playerEvent", {
@@ -108,9 +123,9 @@ setInterval(() => {
       state: hostActualState,
     });
   }
-}, 4000);
+}, 3000);
 
-// Отправка СТАТУСА времени (раз в 2 сек)
+// Отправка СТАТУСА времени участников
 setInterval(() => {
   if (player && typeof player.getCurrentTime === "function") {
     socket.emit("updateMyStatus", {
@@ -133,26 +148,30 @@ socket.on("roomStatus", (users) => {
 
 socket.on("playerEvent", (data) => {
   if (isHost && data.action !== "changeVideo") return;
+
   if (data.action === "changeVideo") {
-    if (data.videoId !== currentVideoId) initPlayer(data.videoId, data.time);
+    if (data.videoId !== currentVideoId) initYTPlayer(data.videoId, data.time);
     return;
   }
 
-  if (player) {
-    if (data.state === "play" && lastReceivedState !== "play") {
-      player.play();
-      lastReceivedState = "play";
-    } else if (data.state === "pause" && lastReceivedState !== "pause") {
-      player.pause();
-      lastReceivedState = "pause";
+  if (player && typeof player.getPlayerState === "function") {
+    // Синхронизация паузы/плей
+    if (
+      data.state === "play" &&
+      player.getPlayerState() !== YT.PlayerState.PLAYING
+    ) {
+      player.playVideo();
+    } else if (
+      data.state === "pause" &&
+      player.getPlayerState() !== YT.PlayerState.PAUSED
+    ) {
+      player.pauseVideo();
     }
 
-    // МЯГКАЯ СИНХРОНИЗАЦИЯ: 20 секунд порог
-    if (data.state === "play") {
-      let myTime = player.getCurrentTime();
-      if (Math.abs(myTime - data.time) > 20) {
-        player.seek(data.time + 1.5); // +1.5 сек компенсация пинга до Челябинска
-      }
+    // Синхронизация времени: Порог 5 секунд (Ютуб быстрее и точнее ВК)
+    let myTime = player.getCurrentTime();
+    if (data.state === "play" && Math.abs(myTime - data.time) > 5) {
+      player.seekTo(data.time, true);
     }
   }
 });
@@ -162,13 +181,11 @@ function sendMessage() {
   const input = document.getElementById("msgInput");
   const text = input.value.trim();
   if (!text || text.length > 500) return;
-
   const now = new Date();
   const timeStr =
     now.getHours().toString().padStart(2, "0") +
     ":" +
     now.getMinutes().toString().padStart(2, "0");
-
   socket.emit("message", { roomId, text, user: myNickname, time: timeStr });
   input.value = "";
 }
@@ -186,7 +203,7 @@ document.getElementById("msgInput").addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
 
-/* СМАЙЛЫ (Исправлено) */
+/* ЭМОДЗИ */
 const emojiList = [
   "😀",
   "😃",
@@ -301,7 +318,7 @@ const emojiList = [
 function initEmojiPicker() {
   const picker = document.getElementById("emojiPicker");
   if (!picker) return;
-  picker.innerHTML = ""; // Очистка
+  picker.innerHTML = "";
   emojiList.forEach((emoji) => {
     const span = document.createElement("span");
     span.className = "emoji-item";
@@ -323,7 +340,6 @@ function toggleEmojiPicker() {
   }
 }
 
-// Запуск инициализации после загрузки страницы
 window.onload = () => {
   initEmojiPicker();
 };

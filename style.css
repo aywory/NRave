@@ -343,27 +343,23 @@ iframe {
 }
 
 /* Список пользователей с временем */
-#user-times {
+#user-times-panel {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 5px 15px;
-  background: rgba(0, 0, 0, 0.3);
-  font-size: 12px;
+  gap: 8px;
+  padding: 8px 15px;
+  background: rgba(0, 0, 0, 0.5);
+  border-bottom: 1px solid #333;
 }
-
 .user-badge {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 4px 8px;
-  border-radius: 6px;
-  color: #ccc;
+  font-size: 11px;
+  color: #bbb;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 4px 10px;
+  border-radius: 20px;
 }
-
 .user-badge span {
-  color: #fff;
+  color: #ff0000; /* Время YouTube для стиля сделаем красным */
   font-weight: bold;
-  font-family: monospace;
   margin-left: 5px;
 }
-
-/* Остальные стили без изменений */

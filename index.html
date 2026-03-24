@@ -5,28 +5,20 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Together Watch</title>
-
-    <!-- Подключаем наш файл со стилями -->
+    <title>Together Watch (YouTube Edition)</title>
     <link rel="stylesheet" href="style.css">
-
     <!-- Библиотеки -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="https://vk.com/js/api/videoplayer.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 
 <body>
-
     <div id="app-root">
-        <!-- ЛЕВАЯ ПАНЕЛЬ: ВИДЕО -->
         <div class="main-content">
-            <!-- Кнопка скрытия -->
             <div class="toggle-ui-btn" onclick="toggleTopBar()" id="toggleBtn">▲</div>
-
-            <!-- Все элементы управления ДОЛЖНЫ быть внутри этого блока -->
             <div class="top-bar" id="topBar">
                 <div id="status-info">Подключение...</div>
-                <input type="text" id="vkLink" placeholder="Вставьте ссылку на видео ВК">
+                <input type="text" id="ytLink" placeholder="Вставьте ссылку на YouTube">
                 <button class="btn btn-ok" onclick="loadVideo()">OK</button>
                 <button id="hostBtn" class="btn btn-host" onclick="setMeAsHost()">👑</button>
             </div>
@@ -40,12 +32,12 @@
                             <small>Нажми сюда для синхронизации</small>
                         </div>
                     </div>
-                    <div id="player-container"></div>
+                    <!-- Контейнер для YouTube -->
+                    <div id="player"></div>
                 </div>
             </div>
         </div>
 
-        <!-- ПРАВАЯ ПАНЕЛЬ: ЧАТ -->
         <div class="sidebar">
             <div id="chat"></div>
             <div id="emojiPicker" class="emoji-picker"></div>
@@ -56,8 +48,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Подключаем наш файл с логикой -->
     <script src="script.js"></script>
 </body>
 
