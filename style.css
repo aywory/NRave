@@ -22,9 +22,7 @@ html {
   color: var(--text-main);
   font-family: -apple-system, system-ui, sans-serif;
   overflow: hidden;
-  position: fixed; /* Фиксируем экран, чтобы он не прыгал */
-  left: 0;
-  top: 0;
+  position: fixed;
 }
 
 #app-root {
@@ -284,12 +282,10 @@ iframe {
     flex-direction: column;
   }
 
+  /* Растягиваем контент на весь экран */
   .main-content {
-    flex-grow: 0;
-    flex-shrink: 0; /* ДОБАВИТЬ ЭТО: запрещает видео сжиматься или улетать */
+    flex-grow: 0; /* Видео занимает только свое место */
     width: 100%;
-    position: relative;
-    z-index: 5;
   }
 
   .sidebar {
@@ -300,11 +296,8 @@ iframe {
   }
 
   .video-box {
-    flex-shrink: 0; /* Запрещает видео ужиматься или улетать вверх */
-    position: sticky;
-    top: 0;
-    z-index: 10;
     background: #000;
+    width: 100%;
   }
 
   .video-ratio {

@@ -88,7 +88,6 @@ function initYTPlayer(videoId, startTime = 0) {
       controls: 1,
       rel: 0,
       modestbranding: 1,
-      playsinline: 1, // ВОТ ЭТО добавлено для iPhone
     },
     events: {
       onReady: (event) => {
@@ -107,6 +106,7 @@ function initYTPlayer(videoId, startTime = 0) {
     },
   });
 }
+
 function activateMobilePlayer() {
   document.getElementById("mobile-overlay").style.display = "none";
   if (player && typeof player.playVideo === "function") player.playVideo();
@@ -350,9 +350,3 @@ function toggleTopBar() {
   bar.classList.toggle("hidden");
   btn.innerText = bar.classList.contains("hidden") ? "▼" : "▲";
 }
-
-// Сброс скролла при фокусе на инпут (фикс для iOS)
-document.getElementById("msgInput").addEventListener("focus", () => {
-  window.scrollTo(0, 0);
-  document.body.scrollTop = 0;
-});
