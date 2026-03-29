@@ -350,15 +350,28 @@ function toggleTopBar() {
   bar.classList.toggle("hidden");
   btn.innerText = bar.classList.contains("hidden") ? "▼" : "▲";
 }
-// Фикс для клавиатуры iPhone
+// Окончательный фикс для iPhone
 if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", () => {
-    // Устанавливаем высоту всего приложения равной реально видимой области
+    const vh = window.visualViewport.height;
     const root = document.getElementById("app-root");
-    root.style.height = window.visualViewport.height + "px";
 
-    // Скроллим чат вниз, чтобы видеть сообщения
+    // 1. Устанавливаем высоту под размер видимого окна
+    root.style.height = vh + "px";
+
+    // 2. ГЛАВНОЕ: Сбрасываем скролл Safari в ноль, чтобы видео не улетало вверх
+    window.scrollTo(0, 0);
+
+    // 3. Скроллим чат вниз
     const chat = document.getElementById("chat");
     if (chat) chat.scrollTop = chat.scrollHeight;
+
+    // 4. Прячем верхнюю панель, когда открыта клава (чтобы видео было больше)
+    const topBar = document.getElementById("topBar");
+    if (vh < 500) {
+      topBar.classList.add("hidden");
+    } else {
+      topBar.classList.remove("hidden");
+    }
   });
 }

@@ -284,10 +284,12 @@ iframe {
     flex-direction: column;
   }
 
-  /* Растягиваем контент на весь экран */
   .main-content {
-    flex-grow: 0; /* Видео занимает только свое место */
+    flex-grow: 0;
+    flex-shrink: 0; /* ДОБАВИТЬ ЭТО: запрещает видео сжиматься или улетать */
     width: 100%;
+    position: relative;
+    z-index: 5;
   }
 
   .sidebar {
