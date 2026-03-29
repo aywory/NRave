@@ -22,7 +22,9 @@ html {
   color: var(--text-main);
   font-family: -apple-system, system-ui, sans-serif;
   overflow: hidden;
-  position: fixed;
+  position: fixed; /* Фиксируем экран, чтобы он не прыгал */
+  left: 0;
+  top: 0;
 }
 
 #app-root {

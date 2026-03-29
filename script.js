@@ -350,3 +350,15 @@ function toggleTopBar() {
   bar.classList.toggle("hidden");
   btn.innerText = bar.classList.contains("hidden") ? "▼" : "▲";
 }
+// Фикс для клавиатуры iPhone
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", () => {
+    // Устанавливаем высоту всего приложения равной реально видимой области
+    const root = document.getElementById("app-root");
+    root.style.height = window.visualViewport.height + "px";
+
+    // Скроллим чат вниз, чтобы видеть сообщения
+    const chat = document.getElementById("chat");
+    if (chat) chat.scrollTop = chat.scrollHeight;
+  });
+}
