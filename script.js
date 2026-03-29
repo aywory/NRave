@@ -88,6 +88,7 @@ function initYTPlayer(videoId, startTime = 0) {
       controls: 1,
       rel: 0,
       modestbranding: 1,
+      playsinline: 1, // ВОТ ЭТО добавлено для iPhone
     },
     events: {
       onReady: (event) => {
@@ -106,7 +107,6 @@ function initYTPlayer(videoId, startTime = 0) {
     },
   });
 }
-
 function activateMobilePlayer() {
   document.getElementById("mobile-overlay").style.display = "none";
   if (player && typeof player.playVideo === "function") player.playVideo();
@@ -350,28 +350,9 @@ function toggleTopBar() {
   bar.classList.toggle("hidden");
   btn.innerText = bar.classList.contains("hidden") ? "▼" : "▲";
 }
-// Окончательный фикс для iPhone
-if (window.visualViewport) {
-  window.visualViewport.addEventListener("resize", () => {
-    const vh = window.visualViewport.height;
-    const root = document.getElementById("app-root");
 
-    // 1. Устанавливаем высоту под размер видимого окна
-    root.style.height = vh + "px";
-
-    // 2. ГЛАВНОЕ: Сбрасываем скролл Safari в ноль, чтобы видео не улетало вверх
-    window.scrollTo(0, 0);
-
-    // 3. Скроллим чат вниз
-    const chat = document.getElementById("chat");
-    if (chat) chat.scrollTop = chat.scrollHeight;
-
-    // 4. Прячем верхнюю панель, когда открыта клава (чтобы видео было больше)
-    const topBar = document.getElementById("topBar");
-    if (vh < 500) {
-      topBar.classList.add("hidden");
-    } else {
-      topBar.classList.remove("hidden");
-    }
-  });
-}
+// Сброс скролла при фокусе на инпут (фикс для iOS)
+document.getElementById("msgInput").addEventListener("focus", () => {
+  window.scrollTo(0, 0);
+  document.body.scrollTop = 0;
+});

@@ -300,8 +300,11 @@ iframe {
   }
 
   .video-box {
+    flex-shrink: 0; /* Запрещает видео ужиматься или улетать вверх */
+    position: sticky;
+    top: 0;
+    z-index: 10;
     background: #000;
-    width: 100%;
   }
 
   .video-ratio {
