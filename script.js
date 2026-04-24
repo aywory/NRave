@@ -1,209 +1,489 @@
+// ═══════════════════════════════════════════
+//  NRave — Multi-platform Watch Together
+// ═══════════════════════════════════════════
+
 const roomId = "nrave_private_room_777";
 const socket = io("https://nrave.onrender.com");
 
-let player = null,
-  isHost = false,
-  currentVideoId = "";
+// ── Состояние ──
+let player = null;
+let isHost = false;
+let currentVideoId = "";
+let currentPlatform = ""; // "youtube" | "vk" | "twitch" | "direct"
 let hostActualState = "pause";
 let isApiReady = false;
 
-// Имя пользователя
+// ── Ник ──
 let myNickname =
   localStorage.getItem("chat_nickname") || prompt("Ваше имя?", "Смотрящий");
 if (!myNickname) myNickname = "Смотрящий";
 localStorage.setItem("chat_nickname", myNickname);
 
-// Панель времени
-const statusList = document.createElement("div");
-statusList.id = "user-times-panel";
-setTimeout(() => {
-  const topBar = document.getElementById("topBar");
-  if (topBar) topBar.after(statusList);
-}, 800);
+// ═══════════════════════════════════════════
+//  ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ
+// ═══════════════════════════════════════════
 
-// Инициализация YouTube API
-function onYouTubeIframeAPIReady() {
-  isApiReady = true;
-  console.log("YouTube API Ready");
+/**
+ * Разбирает ссылку и возвращает объект:
+ * { platform: "youtube"|"vk"|"twitch"|"direct", id: string, embedUrl: string }
+ * или null если не распознана
+ */
+function parseVideoUrl(url) {
+  url = url.trim();
+
+  // YouTube
+  const ytRegex =
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/;
+  const ytMatch = url.match(ytRegex);
+  if (ytMatch) {
+    return { platform: "youtube", id: ytMatch[1], embedUrl: null };
+  }
+
+  // VK Video — несколько форматов
+  // https://vk.com/video-123456_789012
+  // https://vk.com/video?z=video-123456_789012
+  // https://vk.com/clip-123456_789012
+  const vkRegex =
+    /vk\.com\/(?:video|clip)(-?\d+_\d+)|vk\.com\/video\?z=(?:video|clip)(-?\d+_\d+)/;
+  const vkMatch = url.match(vkRegex);
+  if (vkMatch) {
+    const vkId = (vkMatch[1] || vkMatch[2]).replace(/_/, "_");
+    // Формируем embed ссылку VK
+    const embedUrl = `https://vk.com/video_ext.php?oid=${vkId.split("_")[0]}&id=${vkId.split("_")[1]}&hd=2&autoplay=1`;
+    return { platform: "vk", id: vkId, embedUrl };
+  }
+
+  // Twitch канал: twitch.tv/channelname
+  const twitchChannelRegex = /twitch\.tv\/([A-Za-z0-9_]+)(?:\/)?(?:$|\?)/;
+  const twitchChannelMatch = url.match(twitchChannelRegex);
+  if (
+    twitchChannelMatch &&
+    !url.includes("/videos/") &&
+    !url.includes("/clip/")
+  ) {
+    const channel = twitchChannelMatch[1];
+    const parent = location.hostname || "localhost";
+    const embedUrl = `https://player.twitch.tv/?channel=${channel}&parent=${parent}&autoplay=true`;
+    return { platform: "twitch", id: channel, embedUrl };
+  }
+
+  // Twitch VOD: twitch.tv/videos/12345
+  const twitchVodRegex = /twitch\.tv\/videos\/(\d+)/;
+  const twitchVodMatch = url.match(twitchVodRegex);
+  if (twitchVodMatch) {
+    const parent = location.hostname || "localhost";
+    const embedUrl = `https://player.twitch.tv/?video=v${twitchVodMatch[1]}&parent=${parent}&autoplay=true`;
+    return { platform: "twitch", id: "v" + twitchVodMatch[1], embedUrl };
+  }
+
+  // Прямой видеофайл (mp4, webm, m3u8)
+  if (/\.(mp4|webm|m3u8|ogg)(\?.*)?$/i.test(url) || url.startsWith("blob:")) {
+    return { platform: "direct", id: url, embedUrl: url };
+  }
+
+  // Любой другой iframe-совместимый URL (fallback)
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return { platform: "iframe", id: url, embedUrl: url };
+  }
+
+  return null;
 }
 
+// ── Иконки платформ ──
+const platformMeta = {
+  youtube: { icon: "▶", label: "YouTube", cls: "yt" },
+  vk: { icon: "🔵", label: "VK", cls: "vk" },
+  twitch: { icon: "💜", label: "Twitch", cls: "tw" },
+  direct: { icon: "🎬", label: "MP4/HLS", cls: "mp" },
+  iframe: { icon: "🌐", label: "Embed", cls: "mp" },
+};
+
+// Живое определение платформы при вводе
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("ytLink");
+  const badge = document.getElementById("platformBadge");
+  const icon = document.getElementById("platformIcon");
+
+  if (input) {
+    input.addEventListener("input", () => {
+      const parsed = parseVideoUrl(input.value);
+      if (parsed && platformMeta[parsed.platform]) {
+        const meta = platformMeta[parsed.platform];
+        badge.textContent = meta.label;
+        badge.className = "platform-badge " + meta.cls;
+        icon.textContent = meta.icon;
+      } else {
+        badge.textContent = "";
+        badge.className = "platform-badge";
+        icon.textContent = "🔗";
+      }
+    });
+  }
+
+  initEmojiPicker();
+});
+
+// ═══════════════════════════════════════════
+//  YouTube IFrame API
+// ═══════════════════════════════════════════
+function onYouTubeIframeAPIReady() {
+  isApiReady = true;
+}
+
+// ═══════════════════════════════════════════
+//  ПОДКЛЮЧЕНИЕ
+// ═══════════════════════════════════════════
 socket.on("connect", () => {
-  document.getElementById("status-info").innerText = "✅ На связи";
+  const dot = document.querySelector(".status-dot");
+  if (dot) {
+    dot.classList.add("online");
+  }
+  document.getElementById("status-text").innerText = "На связи";
   socket.emit("joinRoom", { roomId, nickname: myNickname });
 });
 
-function formatTime(seconds) {
-  if (isNaN(seconds) || seconds < 0) return "00:00:00";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  return [h, m, s].map((v) => (v < 10 ? "0" + v : v)).join(":");
-}
-
-function setMeAsHost() {
-  isHost = true;
-  myNickname = "👑 " + myNickname.replace("👑 ", "");
-  document.getElementById("hostBtn").style.background = "#ff9800";
-  document.getElementById("status-info").innerText = "⭐ Вы главный";
-}
-
-function extractVideoId(url) {
-  const regExp =
-    /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return match && match[2].length === 11 ? match[2] : null;
-}
-
-function loadVideo() {
-  const link = document.getElementById("ytLink").value;
-  const videoId = extractVideoId(link);
-  if (videoId) {
-    currentVideoId = videoId;
-    setMeAsHost();
-    initYTPlayer(videoId);
-    socket.emit("playerEvent", {
-      roomId,
-      action: "changeVideo",
-      videoId: videoId,
-      time: 0,
-      state: "play",
-    });
-  } else {
-    alert("Неверная ссылка на YouTube");
+socket.on("disconnect", () => {
+  const dot = document.querySelector(".status-dot");
+  if (dot) {
+    dot.classList.remove("online", "host");
   }
-}
-
-function initYTPlayer(videoId, startTime = 0) {
-  if (player) {
-    player.destroy();
-  }
-
-  currentVideoId = videoId;
-  player = new YT.Player("player", {
-    height: "100%",
-    width: "100%",
-    videoId: videoId,
-    playerVars: {
-      autoplay: 1,
-      controls: 1,
-      rel: 0,
-      modestbranding: 1,
-    },
-    events: {
-      onReady: (event) => {
-        if (startTime > 0) event.target.seekTo(startTime);
-        if (!isHost)
-          document.getElementById("mobile-overlay").style.display = "flex";
-      },
-      onStateChange: (event) => {
-        if (isHost) {
-          if (event.data === YT.PlayerState.PLAYING) hostActualState = "play";
-          if (event.data === YT.PlayerState.PAUSED) hostActualState = "pause";
-          if (event.data === YT.PlayerState.BUFFERING)
-            hostActualState = "pause";
-        }
-      },
-    },
-  });
-}
-
-function activateMobilePlayer() {
-  document.getElementById("mobile-overlay").style.display = "none";
-  if (player && typeof player.playVideo === "function") player.playVideo();
-}
-
-// Отправка данных ХОЗЯИНА
-setInterval(() => {
-  if (isHost && player && typeof player.getCurrentTime === "function") {
-    socket.emit("playerEvent", {
-      roomId,
-      action: "syncTime",
-      time: player.getCurrentTime(),
-      videoId: currentVideoId,
-      state: hostActualState,
-    });
-  }
-}, 3000);
-
-// Отправка СТАТУСА времени участников
-setInterval(() => {
-  if (player && typeof player.getCurrentTime === "function") {
-    socket.emit("updateMyStatus", {
-      roomId,
-      time: player.getCurrentTime(),
-      nickname: myNickname,
-    });
-  }
-}, 2000);
-
-socket.on("roomStatus", (users) => {
-  if (!statusList) return;
-  let html = "";
-  for (let id in users) {
-    const u = users[id];
-    html += `<div class="user-badge">● ${u.name}: <span>${formatTime(u.time)}</span></div>`;
-  }
-  statusList.innerHTML = html;
+  document.getElementById("status-text").innerText = "Переподключение...";
 });
 
-socket.on("playerEvent", (data) => {
-  if (isHost && data.action !== "changeVideo") return;
+// ═══════════════════════════════════════════
+//  ХОСТ
+// ═══════════════════════════════════════════
+function setMeAsHost() {
+  isHost = true;
+  myNickname = "👑 " + myNickname.replace(/^👑 /, "");
+  localStorage.setItem("chat_nickname", myNickname);
 
-  if (data.action === "changeVideo") {
-    if (data.videoId !== currentVideoId) initYTPlayer(data.videoId, data.time);
+  const btn = document.getElementById("hostBtn");
+  if (btn) btn.classList.add("active");
+
+  const dot = document.querySelector(".status-dot");
+  if (dot) {
+    dot.classList.remove("online");
+    dot.classList.add("host");
+  }
+  document.getElementById("status-text").innerText = "Ведущий";
+}
+
+// ═══════════════════════════════════════════
+//  ЗАГРУЗКА ВИДЕО
+// ═══════════════════════════════════════════
+function loadVideo() {
+  const url = document.getElementById("ytLink").value.trim();
+  if (!url) return;
+
+  const parsed = parseVideoUrl(url);
+  if (!parsed) {
+    showError(
+      "Не удалось определить платформу. Попробуйте прямую ссылку на mp4.",
+    );
     return;
   }
 
-  if (player && typeof player.getPlayerState === "function") {
-    // Синхронизация паузы/плей
-    if (
-      data.state === "play" &&
-      player.getPlayerState() !== YT.PlayerState.PLAYING
-    ) {
-      player.playVideo();
-    } else if (
-      data.state === "pause" &&
-      player.getPlayerState() !== YT.PlayerState.PAUSED
-    ) {
-      player.pauseVideo();
-    }
+  setMeAsHost();
+  initPlayer(parsed, 0);
+  socket.emit("playerEvent", {
+    roomId,
+    action: "changeVideo",
+    platform: parsed.platform,
+    videoId: parsed.id,
+    embedUrl: parsed.embedUrl,
+    time: 0,
+    state: "play",
+  });
+}
 
-    // Синхронизация времени: Порог 5 секунд (Ютуб быстрее и точнее ВК)
-    let myTime = player.getCurrentTime();
+function showError(msg) {
+  const el = document.getElementById("status-text");
+  const prev = el.innerText;
+  el.innerText = "⚠ " + msg;
+  setTimeout(() => {
+    el.innerText = prev;
+  }, 3000);
+}
+
+// ═══════════════════════════════════════════
+//  ИНИЦИАЛИЗАЦИЯ ПЛЕЕРА
+// ═══════════════════════════════════════════
+function hidePlayers() {
+  document.getElementById("videoPlaceholder").style.display = "none";
+  document.getElementById("yt-player-wrap").style.display = "none";
+  document.getElementById("iframe-player-wrap").style.display = "none";
+  document.getElementById("video-player-wrap").style.display = "none";
+}
+
+function initPlayer(parsed, startTime) {
+  hidePlayers();
+  currentVideoId = parsed.id;
+  currentPlatform = parsed.platform;
+
+  if (parsed.platform === "youtube") {
+    initYTPlayer(parsed.id, startTime);
+  } else if (parsed.platform === "direct") {
+    initDirectPlayer(parsed.embedUrl, startTime);
+  } else {
+    // VK, Twitch, generic iframe
+    initIframePlayer(parsed.embedUrl);
+  }
+}
+
+// ── YouTube ──
+function initYTPlayer(videoId, startTime = 0) {
+  if (player && typeof player.destroy === "function") {
+    player.destroy();
+    player = null;
+  }
+
+  document.getElementById("yt-player-wrap").style.display = "block";
+
+  const tryInit = () => {
+    player = new YT.Player("player", {
+      height: "100%",
+      width: "100%",
+      videoId,
+      playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 },
+      events: {
+        onReady: (e) => {
+          if (startTime > 0) e.target.seekTo(startTime);
+          if (!isHost)
+            document.getElementById("mobile-overlay").style.display = "flex";
+        },
+        onStateChange: (e) => {
+          if (!isHost) return;
+          if (e.data === YT.PlayerState.PLAYING) hostActualState = "play";
+          if (e.data === YT.PlayerState.PAUSED) hostActualState = "pause";
+          if (e.data === YT.PlayerState.BUFFERING) hostActualState = "pause";
+        },
+      },
+    });
+  };
+
+  if (isApiReady) tryInit();
+  else {
+    const wait = setInterval(() => {
+      if (isApiReady) {
+        clearInterval(wait);
+        tryInit();
+      }
+    }, 200);
+  }
+}
+
+// ── iframe (VK, Twitch, generic) ──
+function initIframePlayer(embedUrl) {
+  document.getElementById("iframe-player-wrap").style.display = "block";
+  const iframe = document.getElementById("genericIframe");
+  iframe.src = embedUrl;
+  if (!isHost) document.getElementById("mobile-overlay").style.display = "flex";
+}
+
+// ── Прямой файл ──
+function initDirectPlayer(url, startTime = 0) {
+  document.getElementById("video-player-wrap").style.display = "block";
+  const video = document.getElementById("directVideo");
+  video.src = url;
+  video.currentTime = startTime;
+  video.play().catch(() => {});
+
+  if (isHost) {
+    video.addEventListener("play", () => {
+      hostActualState = "play";
+    });
+    video.addEventListener("pause", () => {
+      hostActualState = "pause";
+    });
+  } else {
+    document.getElementById("mobile-overlay").style.display = "flex";
+  }
+}
+
+// ── Активация мобильного оверлея ──
+function activateMobilePlayer() {
+  document.getElementById("mobile-overlay").style.display = "none";
+  if (
+    currentPlatform === "youtube" &&
+    player &&
+    typeof player.playVideo === "function"
+  ) {
+    player.playVideo();
+  } else if (currentPlatform === "direct") {
+    document
+      .getElementById("directVideo")
+      .play()
+      .catch(() => {});
+  }
+}
+
+// ═══════════════════════════════════════════
+//  ПОЛУЧЕНИЕ ТЕКУЩЕГО ВРЕМЕНИ
+// ═══════════════════════════════════════════
+function getCurrentTime() {
+  if (
+    currentPlatform === "youtube" &&
+    player &&
+    typeof player.getCurrentTime === "function"
+  ) {
+    return player.getCurrentTime();
+  }
+  if (currentPlatform === "direct") {
+    const v = document.getElementById("directVideo");
+    return v ? v.currentTime : 0;
+  }
+  return 0;
+}
+
+// ── Синхронизация от хоста → клиентам ──
+setInterval(() => {
+  if (!isHost) return;
+  const t = getCurrentTime();
+  if (t === null) return;
+  socket.emit("playerEvent", {
+    roomId,
+    action: "syncTime",
+    platform: currentPlatform,
+    videoId: currentVideoId,
+    time: t,
+    state: hostActualState,
+  });
+}, 3000);
+
+// ── Отправка своего времени для панели участников ──
+setInterval(() => {
+  const t = getCurrentTime();
+  if (t === null) return;
+  socket.emit("updateMyStatus", { roomId, time: t, nickname: myNickname });
+}, 2000);
+
+// ── Приём событий плеера ──
+socket.on("playerEvent", (data) => {
+  // Хост игнорирует всё кроме смены видео (от другого хоста)
+  if (isHost && data.action !== "changeVideo") return;
+
+  if (data.action === "changeVideo") {
+    // Если другой хост загружает видео
+    if (!isHost) {
+      const parsed = {
+        platform: data.platform,
+        id: data.videoId,
+        embedUrl: data.embedUrl,
+      };
+      initPlayer(parsed, data.time || 0);
+    }
+    return;
+  }
+
+  // syncTime
+  if (
+    data.platform === "youtube" &&
+    player &&
+    typeof player.getPlayerState === "function"
+  ) {
+    const state = player.getPlayerState();
+    if (data.state === "play" && state !== YT.PlayerState.PLAYING)
+      player.playVideo();
+    if (data.state === "pause" && state !== YT.PlayerState.PAUSED)
+      player.pauseVideo();
+
+    const myTime = player.getCurrentTime();
     if (data.state === "play" && Math.abs(myTime - data.time) > 5) {
       player.seekTo(data.time, true);
     }
   }
+
+  if (data.platform === "direct") {
+    const v = document.getElementById("directVideo");
+    if (!v) return;
+    if (data.state === "play" && v.paused) v.play().catch(() => {});
+    if (data.state === "pause" && !v.paused) v.pause();
+    if (data.state === "play" && Math.abs(v.currentTime - data.time) > 5) {
+      v.currentTime = data.time;
+    }
+  }
+  // VK / Twitch через iframe — синхронизация через seekTo невозможна без postMessage API,
+  // поэтому для них можно показывать время хоста как ориентир в панели участников.
 });
 
-/* ЧАТ */
+// ═══════════════════════════════════════════
+//  ПАНЕЛЬ УЧАСТНИКОВ
+// ═══════════════════════════════════════════
+function formatTime(seconds) {
+  if (isNaN(seconds) || seconds < 0) return "0:00:00";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return [h, m, s]
+    .map((v, i) => (i === 0 ? v : String(v).padStart(2, "0")))
+    .join(":");
+}
+
+socket.on("roomStatus", (users) => {
+  const panel = document.getElementById("user-times-panel");
+  const counter = document.getElementById("onlineCount");
+  if (!panel) return;
+
+  const count = Object.keys(users).length;
+  if (counter) counter.textContent = count + " онлайн";
+
+  let html = "";
+  for (const id in users) {
+    const u = users[id];
+    html += `<div class="user-badge">
+      <span class="dot">●</span>
+      <span>${u.name}</span>
+      <span class="utime">${formatTime(u.time)}</span>
+    </div>`;
+  }
+  panel.innerHTML = html;
+});
+
+// ═══════════════════════════════════════════
+//  ЧАТ
+// ═══════════════════════════════════════════
 function sendMessage() {
   const input = document.getElementById("msgInput");
   const text = input.value.trim();
   if (!text || text.length > 500) return;
   const now = new Date();
   const timeStr =
-    now.getHours().toString().padStart(2, "0") +
+    String(now.getHours()).padStart(2, "0") +
     ":" +
-    now.getMinutes().toString().padStart(2, "0");
+    String(now.getMinutes()).padStart(2, "0");
   socket.emit("message", { roomId, text, user: myNickname, time: timeStr });
   input.value = "";
 }
 
 socket.on("message", (data) => {
   const chat = document.getElementById("chat");
-  const msgDiv = document.createElement("div");
-  msgDiv.className = "msg";
-  msgDiv.innerHTML = `<div class="msg-info"><b>${data.user}</b><span class="msg-time">${data.time}</span></div><div class="msg-text">${data.text}</div>`;
-  chat.appendChild(msgDiv);
+  const div = document.createElement("div");
+  const isMine = data.user === myNickname;
+  div.className = "msg" + (isMine ? " my-msg" : "");
+  div.innerHTML = `
+    <div class="msg-info">
+      <b>${escapeHtml(data.user)}</b>
+      <span class="msg-time">${data.time}</span>
+    </div>
+    <div class="msg-text">${escapeHtml(data.text)}</div>`;
+  chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
 });
 
-document.getElementById("msgInput").addEventListener("keypress", (e) => {
-  if (e.key === "Enter") sendMessage();
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("msgInput").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
 });
 
-/* ЭМОДЗИ */
+// ═══════════════════════════════════════════
+//  ЭМОДЗИ
+// ═══════════════════════════════════════════
 const emojiList = [
   "😀",
   "😃",
@@ -313,6 +593,15 @@ const emojiList = [
   "👋",
   "💪",
   "🙏",
+  "🔥",
+  "💯",
+  "❤️",
+  "🎉",
+  "🍿",
+  "🎬",
+  "🎵",
+  "⭐",
+  "💎",
 ];
 
 function initEmojiPicker() {
@@ -334,16 +623,12 @@ function initEmojiPicker() {
 
 function toggleEmojiPicker() {
   const picker = document.getElementById("emojiPicker");
-  if (picker) {
-    const isVisible = picker.style.display === "grid";
-    picker.style.display = isVisible ? "none" : "grid";
-  }
+  if (picker) picker.classList.toggle("open");
 }
 
-window.onload = () => {
-  initEmojiPicker();
-};
-
+// ═══════════════════════════════════════════
+//  UI
+// ═══════════════════════════════════════════
 function toggleTopBar() {
   const bar = document.getElementById("topBar");
   const btn = document.getElementById("toggleBtn");
