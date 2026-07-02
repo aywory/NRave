@@ -658,7 +658,7 @@ function toggleEmojiPicker() {
 }
 
 // ═══════════════════════════════════════════
-//  UI
+//  UIы
 // ═══════════════════════════════════════════
 function toggleTopBar() {
   const bar = document.getElementById("topBar");
