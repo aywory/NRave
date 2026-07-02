@@ -9,15 +9,25 @@ const socket = io("https://nrave.onrender.com");
 let player = null;
 let isHost = false;
 let currentVideoId = "";
-let currentPlatform = ""; // "youtube" | "vk" | "twitch" | "direct"
+let currentPlatform = ""; // "youtube" | "vk" | "twitch" | "rutube" | "direct"
 let hostActualState = "pause";
 let isApiReady = false;
+let pendingHostPwd = null; // пароль, который сейчас проверяется сервером
+let silentHostAttempt = false; // true = автопопытка при подключении, ошибку не показываем
 
 // ── Ник ──
-let myNickname =
-  localStorage.getItem("chat_nickname") || prompt("Ваше имя?", "Смотрящий");
-if (!myNickname) myNickname = "Смотрящий";
-localStorage.setItem("chat_nickname", myNickname);
+// Базовое имя хранится отдельно от отображаемого — так корона 👑
+// добавляется/убирается автоматически и не портит то, что ты вводишь.
+let baseNickname =
+  localStorage.getItem("chat_nickname_base") ||
+  (localStorage.getItem("chat_nickname") || "").replace(/^👑\s*/, "") ||
+  prompt("Ваше имя?", "Смотрящий");
+if (!baseNickname) baseNickname = "Смотрящий";
+localStorage.setItem("chat_nickname_base", baseNickname);
+
+function getDisplayName() {
+  return (isHost ? "👑 " : "") + baseNickname;
+}
 
 // ═══════════════════════════════════════════
 //  ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ
@@ -152,6 +162,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   initEmojiPicker();
+
+  // Инициализация мини-профиля
+  const avatar = document.getElementById("profileAvatar");
+  if (avatar) avatar.textContent = baseNickname.charAt(0).toUpperCase();
+  renderHostControl();
+
+  // Enter в поле имени = сохранить
+  const nickInput = document.getElementById("nicknameInput");
+  if (nickInput) {
+    nickInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") saveNickname();
+    });
+  }
 });
 
 // ═══════════════════════════════════════════
@@ -170,7 +193,16 @@ socket.on("connect", () => {
     dot.classList.add("online");
   }
   document.getElementById("status-text").innerText = "На связи";
-  socket.emit("joinRoom", { roomId, nickname: myNickname });
+  socket.emit("joinRoom", { roomId, nickname: getDisplayName() });
+
+  // Если раньше уже вводили правильный пароль ведущего на этом устройстве —
+  // пробуем автоматически восстановить корону молча, без запроса пароля.
+  const savedPwd = localStorage.getItem("nrave_host_pwd");
+  if (savedPwd) {
+    pendingHostPwd = savedPwd;
+    silentHostAttempt = true;
+    socket.emit("claimHost", { roomId, password: savedPwd });
+  }
 });
 
 socket.on("disconnect", () => {
@@ -182,23 +214,141 @@ socket.on("disconnect", () => {
 });
 
 // ═══════════════════════════════════════════
-//  ХОСТ
+//  ВЕДУЩИЙ (корона по паролю)
 // ═══════════════════════════════════════════
-function setMeAsHost() {
-  isHost = true;
-  myNickname = "👑 " + myNickname.replace(/^👑 /, "");
-  localStorage.setItem("chat_nickname", myNickname);
 
-  const btn = document.getElementById("hostBtn");
-  if (btn) btn.classList.add("active");
+// Сервер — единственный источник правды о том, кто ведущий.
+// Это защищает от того, что кто угодно объявит себя ведущим локально.
+socket.on("hostAssigned", (data) => {
+  const wasHost = isHost;
+  isHost = !!data.hostId && data.hostId === socket.id;
 
-  const dot = document.querySelector(".status-dot");
-  if (dot) {
-    dot.classList.remove("online");
-    dot.classList.add("host");
+  if (isHost && pendingHostPwd) {
+    localStorage.setItem("nrave_host_pwd", pendingHostPwd);
   }
-  document.getElementById("status-text").innerText = "Ведущий";
+  if (!isHost && wasHost) {
+    // корону забрали / передали другому
+  }
+  pendingHostPwd = null;
+  silentHostAttempt = false;
+
+  updateHostUI();
+});
+
+socket.on("hostDenied", (data) => {
+  const wasSilent = silentHostAttempt;
+  pendingHostPwd = null;
+  silentHostAttempt = false;
+  if (wasSilent) {
+    // сохранённый пароль больше не подходит — тихо забываем его
+    localStorage.removeItem("nrave_host_pwd");
+    return;
+  }
+  showError(
+    data && data.reason === "wrong_password"
+      ? "Неверный пароль ведущего"
+      : "Не удалось стать ведущим",
+  );
+});
+
+function requestHost() {
+  const pwd = prompt("Введите пароль ведущего:");
+  if (pwd === null || pwd === "") return;
+  pendingHostPwd = pwd;
+  silentHostAttempt = false;
+  socket.emit("claimHost", { roomId, password: pwd });
 }
+
+function releaseHost() {
+  localStorage.removeItem("nrave_host_pwd");
+  socket.emit("releaseHost", { roomId });
+}
+
+function updateHostUI() {
+  const dot = document.querySelector(".status-dot");
+  const statusText = document.getElementById("status-text");
+  const profileBtn = document.getElementById("profileBtn");
+  const crownBadge = document.getElementById("crownBadge");
+
+  if (isHost) {
+    if (dot) {
+      dot.classList.remove("online");
+      dot.classList.add("host");
+    }
+    statusText.innerText = "Ведущий";
+    if (profileBtn) profileBtn.classList.add("active");
+    if (crownBadge) crownBadge.style.display = "block";
+  } else {
+    if (dot) {
+      dot.classList.remove("host");
+      dot.classList.add("online");
+    }
+    statusText.innerText = "На связи";
+    if (profileBtn) profileBtn.classList.remove("active");
+    if (crownBadge) crownBadge.style.display = "none";
+  }
+
+  // Сразу обновляем имя (с короной/без) у всех остальных
+  socket.emit("updateMyStatus", {
+    roomId,
+    time: getCurrentTime() || 0,
+    nickname: getDisplayName(),
+  });
+
+  renderHostControl();
+}
+
+function renderHostControl() {
+  const area = document.getElementById("hostControlArea");
+  if (!area) return;
+  if (isHost) {
+    area.innerHTML =
+      '<p class="profile-host-status">👑 Вы ведущий</p>' +
+      '<button class="btn btn-secondary" onclick="releaseHost()">Отдать корону</button>';
+  } else {
+    area.innerHTML =
+      '<button class="btn btn-load" onclick="requestHost()">Стать ведущим</button>';
+  }
+}
+
+// ═══════════════════════════════════════════
+//  МИНИ-ПРОФИЛЬ (смена имени)
+// ═══════════════════════════════════════════
+function toggleProfilePanel() {
+  const panel = document.getElementById("profilePanel");
+  if (!panel) return;
+  const opening = !panel.classList.contains("open");
+  panel.classList.toggle("open");
+  if (opening) {
+    document.getElementById("nicknameInput").value = baseNickname;
+    renderHostControl();
+  }
+}
+
+function saveNickname() {
+  const input = document.getElementById("nicknameInput");
+  const val = input.value.trim().slice(0, 20);
+  if (!val) return;
+  baseNickname = val;
+  localStorage.setItem("chat_nickname_base", baseNickname);
+  const avatar = document.getElementById("profileAvatar");
+  if (avatar) avatar.textContent = baseNickname.charAt(0).toUpperCase();
+  socket.emit("updateMyStatus", {
+    roomId,
+    time: getCurrentTime() || 0,
+    nickname: getDisplayName(),
+  });
+  document.getElementById("profilePanel").classList.remove("open");
+}
+
+// Закрываем панель профиля при клике вне неё
+document.addEventListener("click", (e) => {
+  const panel = document.getElementById("profilePanel");
+  const wrap = document.querySelector(".profile-wrap");
+  if (panel && panel.classList.contains("open") && wrap && !wrap.contains(e.target)) {
+    panel.classList.remove("open");
+  }
+});
 
 // ═══════════════════════════════════════════
 //  ЗАГРУЗКА ВИДЕО
@@ -206,6 +356,11 @@ function setMeAsHost() {
 function loadVideo() {
   const url = document.getElementById("ytLink").value.trim();
   if (!url) return;
+
+  if (!isHost) {
+    showError("Только ведущий может загружать видео. Нажмите на профиль 🙂 и станьте ведущим.");
+    return;
+  }
 
   const parsed = parseVideoUrl(url);
   if (!parsed) {
@@ -215,7 +370,6 @@ function loadVideo() {
     return;
   }
 
-  setMeAsHost();
   initPlayer(parsed, 0);
   socket.emit("playerEvent", {
     roomId,
@@ -386,7 +540,7 @@ setInterval(() => {
 setInterval(() => {
   const t = getCurrentTime();
   if (t === null) return;
-  socket.emit("updateMyStatus", { roomId, time: t, nickname: myNickname });
+  socket.emit("updateMyStatus", { roomId, time: t, nickname: getDisplayName() });
 }, 2000);
 
 // ── Приём событий плеера ──
@@ -483,14 +637,20 @@ function sendMessage() {
     String(now.getHours()).padStart(2, "0") +
     ":" +
     String(now.getMinutes()).padStart(2, "0");
-  socket.emit("message", { roomId, text, user: myNickname, time: timeStr });
+  socket.emit("message", {
+    roomId,
+    text,
+    user: getDisplayName(),
+    senderId: socket.id,
+    time: timeStr,
+  });
   input.value = "";
 }
 
 socket.on("message", (data) => {
   const chat = document.getElementById("chat");
   const div = document.createElement("div");
-  const isMine = data.user === myNickname;
+  const isMine = data.senderId === socket.id;
   div.className = "msg" + (isMine ? " my-msg" : "");
   div.innerHTML = `
     <div class="msg-info">
@@ -658,7 +818,7 @@ function toggleEmojiPicker() {
 }
 
 // ═══════════════════════════════════════════
-//  UIы
+//  UI
 // ═══════════════════════════════════════════
 function toggleTopBar() {
   const bar = document.getElementById("topBar");

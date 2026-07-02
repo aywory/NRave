@@ -21,7 +21,7 @@
         <!-- ЛЕВАЯ ЧАСТЬ: ВИДЕО -->
         <div class="main-content">
 
-            <!-- ШАПКА -->
+            <!-- ШАПКА (скрываемая часть — лого + поле ссылки) -->
             <header class="top-bar" id="topBar">
                 <div class="logo">
                     <span class="logo-icon">◈</span>
@@ -36,19 +36,35 @@
                     </div>
                     <button class="btn btn-load" onclick="loadVideo()">Смотреть</button>
                 </div>
-
-                <div class="header-right">
-                    <div id="status-info" class="status-pill">
-                        <span class="status-dot"></span>
-                        <span id="status-text">Подключение...</span>
-                    </div>
-                    <button id="hostBtn" class="btn btn-host" onclick="setMeAsHost()" title="Стать ведущим">
-                        <span>👑</span>
-                    </button>
-                    <button class="btn btn-toggle" onclick="toggleTopBar()" id="toggleBtn"
-                        title="Скрыть панель">▲</button>
-                </div>
             </header>
+
+            <!-- ПЛАВАЮЩАЯ ПАНЕЛЬ УПРАВЛЕНИЯ (видна всегда, даже если шапка свёрнута) -->
+            <div class="header-controls" id="headerControls">
+                <div id="status-info" class="status-pill">
+                    <span class="status-dot"></span>
+                    <span id="status-text">Подключение...</span>
+                </div>
+
+                <div class="profile-wrap">
+                    <button id="profileBtn" class="btn btn-host" onclick="toggleProfilePanel()" title="Профиль">
+                        <span id="profileAvatar">🙂</span>
+                        <span id="crownBadge" class="crown-badge" style="display:none">👑</span>
+                    </button>
+
+                    <div id="profilePanel" class="profile-panel">
+                        <label class="profile-label">Ваше имя</label>
+                        <div class="profile-row">
+                            <input type="text" id="nicknameInput" maxlength="20" placeholder="Ваше имя">
+                            <button class="btn btn-load" onclick="saveNickname()">✓</button>
+                        </div>
+                        <div class="profile-divider"></div>
+                        <div id="hostControlArea"></div>
+                    </div>
+                </div>
+
+                <button class="btn btn-toggle" onclick="toggleTopBar()" id="toggleBtn"
+                    title="Скрыть/показать панель">▲</button>
+            </div>
 
             <!-- ПАНЕЛЬ УЧАСТНИКОВ -->
             <div id="user-times-panel"></div>
