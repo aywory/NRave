@@ -39,18 +39,22 @@ function parseVideoUrl(url) {
     return { platform: "youtube", id: ytMatch[1], embedUrl: null };
   }
 
-  // VK Video — несколько форматов
+  // VK Video — несколько форматов, включая новый домен vkvideo.ru
   // https://vk.com/video-123456_789012
   // https://vk.com/video?z=video-123456_789012
   // https://vk.com/clip-123456_789012
-  const vkRegex =
-    /vk\.com\/(?:video|clip)(-?\d+_\d+)|vk\.com\/video\?z=(?:video|clip)(-?\d+_\d+)/;
-  const vkMatch = url.match(vkRegex);
-  if (vkMatch) {
-    const vkId = (vkMatch[1] || vkMatch[2]).replace(/_/, "_");
-    // Формируем embed ссылку VK
-    const embedUrl = `https://vk.com/video_ext.php?oid=${vkId.split("_")[0]}&id=${vkId.split("_")[1]}&hd=2&autoplay=1`;
-    return { platform: "vk", id: vkId, embedUrl };
+  // https://vkvideo.ru/video-123456_789012
+  // https://vk.com/someuser?z=video-123456_789012%2Fpl_cat_8
+  if (/(?:^|\.)vk(?:video)?\.(?:com|ru)/i.test(url)) {
+    const vkIdMatch = url.match(/(?:video|clip)(-?\d+_\d+)/);
+    if (vkIdMatch) {
+      const vkId = vkIdMatch[1];
+      const [oid, vid] = vkId.split("_");
+      // Формируем embed ссылку VK (единственный формат, который реально
+      // отдаёт только плеер, без остального интерфейса сайта)
+      const embedUrl = `https://vk.com/video_ext.php?oid=${oid}&id=${vid}&hd=2&autoplay=1`;
+      return { platform: "vk", id: vkId, embedUrl };
+    }
   }
 
   // Twitch канал: twitch.tv/channelname
