@@ -50,9 +50,14 @@ function parseVideoUrl(url) {
     if (vkIdMatch) {
       const vkId = vkIdMatch[1];
       const [oid, vid] = vkId.split("_");
+      // Некоторые видео (из закрытых групп/профилей) встраиваются ТОЛЬКО
+      // если передать их персональный hash из исходной ссылки на видео
+      let hashParam = "";
+      const hashMatch = url.match(/[?&]hash=([a-zA-Z0-9]+)/);
+      if (hashMatch) hashParam = `&hash=${hashMatch[1]}`;
       // Формируем embed ссылку VK (единственный формат, который реально
       // отдаёт только плеер, без остального интерфейса сайта)
-      const embedUrl = `https://vk.com/video_ext.php?oid=${oid}&id=${vid}&hd=2&autoplay=1`;
+      const embedUrl = `https://vk.com/video_ext.php?oid=${oid}&id=${vid}&hd=2&autoplay=1${hashParam}`;
       return { platform: "vk", id: vkId, embedUrl };
     }
   }
@@ -66,8 +71,7 @@ function parseVideoUrl(url) {
     !url.includes("/clip/")
   ) {
     const channel = twitchChannelMatch[1];
-    const parent = location.hostname || "localhost";
-    const embedUrl = `https://player.twitch.tv/?channel=${channel}&parent=${parent}&autoplay=true`;
+    const embedUrl = `https://player.twitch.tv/?channel=${channel}&${twitchParents()}&autoplay=true`;
     return { platform: "twitch", id: channel, embedUrl };
   }
 
@@ -75,9 +79,18 @@ function parseVideoUrl(url) {
   const twitchVodRegex = /twitch\.tv\/videos\/(\d+)/;
   const twitchVodMatch = url.match(twitchVodRegex);
   if (twitchVodMatch) {
-    const parent = location.hostname || "localhost";
-    const embedUrl = `https://player.twitch.tv/?video=v${twitchVodMatch[1]}&parent=${parent}&autoplay=true`;
+    const embedUrl = `https://player.twitch.tv/?video=v${twitchVodMatch[1]}&${twitchParents()}&autoplay=true`;
     return { platform: "twitch", id: "v" + twitchVodMatch[1], embedUrl };
+  }
+
+  // Rutube — https://rutube.ru/video/<hash>/ или уже готовая embed-ссылка
+  // https://rutube.ru/play/embed/<hash>
+  const rutubeRegex = /rutube\.ru\/(?:video|play\/embed)\/([a-zA-Z0-9]+)/;
+  const rutubeMatch = url.match(rutubeRegex);
+  if (rutubeMatch) {
+    const rutubeId = rutubeMatch[1];
+    const embedUrl = `https://rutube.ru/play/embed/${rutubeId}`;
+    return { platform: "rutube", id: rutubeId, embedUrl };
   }
 
   // Прямой видеофайл (mp4, webm, m3u8)
@@ -85,12 +98,26 @@ function parseVideoUrl(url) {
     return { platform: "direct", id: url, embedUrl: url };
   }
 
-  // Любой другой iframe-совместимый URL (fallback)
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return { platform: "iframe", id: url, embedUrl: url };
-  }
-
+  // Ссылка не подходит ни под один из поддерживаемых сервисов.
+  // Мы намеренно НЕ пытаемся вставить произвольный сайт в iframe "как есть" —
+  // подавляющее большинство сайтов (кинотеатры, стриминги и т.п.) либо
+  // запрещают встраивание через X-Frame-Options/CSP, либо, как в вашем
+  // случае с Megogo, просто откроют внутри плеера всю страницу целиком
+  // со своим меню и рекомендациями, а не чистое видео.
   return null;
+}
+
+// Twitch требует ТОЧНОЕ совпадение параметра parent с доменом,
+// с которого встраивается плеер. Передаём сразу несколько вероятных
+// вариантов (с www и без), чтобы не словить "видео недоступно".
+function twitchParents() {
+  const host = location.hostname || "localhost";
+  const variants = new Set([host, "localhost"]);
+  if (host.startsWith("www.")) variants.add(host.slice(4));
+  else variants.add("www." + host);
+  return Array.from(variants)
+    .map((h) => `parent=${h}`)
+    .join("&");
 }
 
 // ── Иконки платформ ──
@@ -98,8 +125,8 @@ const platformMeta = {
   youtube: { icon: "▶", label: "YouTube", cls: "yt" },
   vk: { icon: "🔵", label: "VK", cls: "vk" },
   twitch: { icon: "💜", label: "Twitch", cls: "tw" },
+  rutube: { icon: "🟠", label: "Rutube", cls: "mp" },
   direct: { icon: "🎬", label: "MP4/HLS", cls: "mp" },
-  iframe: { icon: "🌐", label: "Embed", cls: "mp" },
 };
 
 // Живое определение платформы при вводе
@@ -183,7 +210,7 @@ function loadVideo() {
   const parsed = parseVideoUrl(url);
   if (!parsed) {
     showError(
-      "Не удалось определить платформу. Попробуйте прямую ссылку на mp4.",
+      "Поддерживаются только YouTube, VK, Rutube, Twitch и прямые mp4/m3u8-ссылки.",
     );
     return;
   }
@@ -230,7 +257,7 @@ function initPlayer(parsed, startTime) {
   } else if (parsed.platform === "direct") {
     initDirectPlayer(parsed.embedUrl, startTime);
   } else {
-    // VK, Twitch, generic iframe
+    // VK, Twitch, Rutube — все через универсальный iframe-плеер
     initIframePlayer(parsed.embedUrl);
   }
 }
