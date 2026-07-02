@@ -45,7 +45,7 @@ function parseVideoUrl(url) {
   // https://vk.com/clip-123456_789012
   // https://vkvideo.ru/video-123456_789012
   // https://vk.com/someuser?z=video-123456_789012%2Fpl_cat_8
-  if (/(?:^|\.)vk(?:video)?\.(?:com|ru)/i.test(url)) {
+  if (/vk(?:video)?\.(?:com|ru)/i.test(url)) {
     const vkIdMatch = url.match(/(?:video|clip)(-?\d+_\d+)/);
     if (vkIdMatch) {
       const vkId = vkIdMatch[1];
