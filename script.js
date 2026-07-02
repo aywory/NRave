@@ -345,7 +345,12 @@ function saveNickname() {
 document.addEventListener("click", (e) => {
   const panel = document.getElementById("profilePanel");
   const wrap = document.querySelector(".profile-wrap");
-  if (panel && panel.classList.contains("open") && wrap && !wrap.contains(e.target)) {
+  if (
+    panel &&
+    panel.classList.contains("open") &&
+    wrap &&
+    !wrap.contains(e.target)
+  ) {
     panel.classList.remove("open");
   }
 });
@@ -358,7 +363,9 @@ function loadVideo() {
   if (!url) return;
 
   if (!isHost) {
-    showError("Только ведущий может загружать видео. Нажмите на профиль 🙂 и станьте ведущим.");
+    showError(
+      "Только ведущий может загружать видео. Нажмите на профиль 🙂 и станьте ведущим.",
+    );
     return;
   }
 
@@ -540,7 +547,11 @@ setInterval(() => {
 setInterval(() => {
   const t = getCurrentTime();
   if (t === null) return;
-  socket.emit("updateMyStatus", { roomId, time: t, nickname: getDisplayName() });
+  socket.emit("updateMyStatus", {
+    roomId,
+    time: t,
+    nickname: getDisplayName(),
+  });
 }, 2000);
 
 // ── Приём событий плеера ──
