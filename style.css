@@ -180,13 +180,27 @@ html {
 /* ══════════ ПЛАВАЮЩАЯ ПАНЕЛЬ УПРАВЛЕНИЯ ══════════ */
 /* Всегда видна поверх видео, даже когда верхняя шапка свёрнута */
 .header-controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  z-index: 60;
+  flex-shrink: 0;
+}
+
+/* Когда шапка свёрнута — панель управления превращается в плавающий
+   оверлей над видео, чтобы не занимать место */
+.top-bar.hidden ~ .header-controls {
   position: absolute;
   top: 12px;
   right: 12px;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  background: transparent;
+  border-bottom: none;
+  padding: 0;
 }
 
 .profile-wrap {
